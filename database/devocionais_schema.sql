@@ -46,8 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_devocionais_sent ON devocionais(sent);
 CREATE INDEX IF NOT EXISTS idx_devocionais_source ON devocionais(source);
 CREATE INDEX IF NOT EXISTS idx_devocionais_created_at ON devocionais(created_at DESC);
 
--- Índice GIN para busca em metadata JSONB
-CREATE INDEX IF NOT EXISTS idx_devocionais_metadata ON devocionais USING GIN(metadata);
+-- Índice GIN para busca em metadata_json JSONB (removido pois agora é TEXT)
+-- CREATE INDEX IF NOT EXISTS idx_devocionais_metadata ON devocionais USING GIN(metadata_json);
 
 -- Índice para busca full-text no conteúdo
 CREATE INDEX IF NOT EXISTS idx_devocionais_content_search ON devocionais USING GIN(to_tsvector('portuguese', content));
@@ -229,7 +229,7 @@ COMMENT ON TABLE devocional_contatos IS 'Lista de contatos que recebem devociona
 COMMENT ON TABLE devocional_envios IS 'Histórico de envios de devocionais';
 
 COMMENT ON COLUMN devocionais.content IS 'Texto completo formatado para WhatsApp com emojis e formatação';
-COMMENT ON COLUMN devocionais.metadata IS 'Metadados adicionais em formato JSONB para flexibilidade';
+COMMENT ON COLUMN devocionais.metadata_json IS 'Metadados adicionais em formato JSON (TEXT) para flexibilidade';
 COMMENT ON COLUMN devocional_envios.message_text IS 'Texto enviado (pode incluir personalização com nome)';
 
 -- =====================================================
