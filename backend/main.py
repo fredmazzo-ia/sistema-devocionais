@@ -1,0 +1,76 @@
+"""
+API principal do sistema de monitoramento de notícias
+"""
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+import uvicorn
+
+from app.database import init_db
+from app.routers import news, monitoring, notifications, devocional
+from app.routers import devocional_context, devocional_test, devocional_context
+from app.scheduler import start_scheduler, stop_scheduler
+from app.devocional_scheduler import start_scheduler as start_devocional_scheduler, stop_scheduler as stop_devocional_scheduler
+from app.logging_config import setup_logging
+
+# Configurar logging
+setup_logging()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gerencia o ciclo de vida da aplicação"""
+    # Inicialização
+    init_db()
+    start_scheduler()
+    start_devocional_scheduler()  # Iniciar scheduler de devocionais
+    yield
+    # Encerramento
+    stop_scheduler()
+    stop_devocional_scheduler()  # Parar scheduler de devocionais
+
+
+app = FastAPI(
+    title="Sistema de Monitoramento de Notícias",
+    description="API para monitoramento e raspagem de notícias sobre Assistência Social",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Incluir routers
+app.include_router(news.router, prefix="/api/news", tags=["Notícias"])
+app.include_router(monitoring.router, prefix="/api/monitoring", tags=["Monitoramento"])
+app.include_router(notifications.router, prefix="/api/notifications", tags=["Notificações"])
+app.include_router(devocional.router, prefix="/api", tags=["Devocional"])
+app.include_router(devocional_context.router, prefix="/api", tags=["Devocional Context"])
+app.include_router(devocional_test.router, prefix="/api", tags=["Devocional Test"])
+
+
+@app.get("/")
+async def root():
+    """Endpoint raiz"""
+    return {
+        "message": "Sistema de Monitoramento de Notícias - Secretaria da Assistência Social",
+        "status": "online"
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Verificação de saúde da API"""
+    return {"status": "healthy"}
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
