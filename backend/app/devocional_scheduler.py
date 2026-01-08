@@ -113,34 +113,33 @@ def run_scheduler():
     try:
         send_time_str = settings.DEVOCIONAL_SEND_TIME
         hour, minute = map(int, send_time_str.split(':'))
-        send_time = dt_time(hour, minute)
     except Exception as e:
         logger.error(f"Erro ao parsear horário de envio: {e}. Usando 06:00 como padrão.")
-        send_time = dt_time(6, 0)
+        hour, minute = 6, 0
     
-    # Agendar envio diário (o schedule usa horário local do servidor)
-    # Mas vamos converter para UTC para agendar corretamente
     sao_paulo_tz = ZoneInfo("America/Sao_Paulo")
+    utc_tz = ZoneInfo("UTC")
     
-    # Criar datetime de hoje em São Paulo com o horário desejado
-    now_sp = datetime.now(sao_paulo_tz)
-    target_time_sp = now_sp.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    logger.info(f"Scheduler de devocionais iniciado. Envio agendado para {hour:02d}:{minute:02d} (horário de São Paulo)")
     
-    # Se o horário já passou hoje, agendar para amanhã
-    if target_time_sp <= now_sp:
-        target_time_sp += timedelta(days=1)
-    
-    # Converter para UTC (horário do servidor)
-    target_time_utc = target_time_sp.astimezone(ZoneInfo("UTC"))
-    
-    # Agendar usando horário UTC
-    schedule.every().day.at(target_time_utc.strftime("%H:%M")).do(send_daily_devocional)
-    
-    logger.info(f"Scheduler de devocionais iniciado. Envio agendado para {send_time.strftime('%H:%M')} (horário de São Paulo)")
-    logger.info(f"Horário UTC equivalente: {target_time_utc.strftime('%H:%M')}")
-    
-    # Loop do scheduler
+    # Loop do scheduler - verifica a cada minuto
     while scheduler_running:
+        # Verificar se é hora de enviar (usando horário de São Paulo)
+        now_sp = datetime.now(sao_paulo_tz)
+        current_hour = now_sp.hour
+        current_minute = now_sp.minute
+        
+        # Se chegou no horário agendado (verifica a cada minuto)
+        if current_hour == hour and current_minute == minute:
+            # Verificar se já enviou hoje (evitar múltiplos envios)
+            last_sent = getattr(run_scheduler, 'last_sent_date', None)
+            today = now_sp.date()
+            
+            if last_sent != today:
+                logger.info(f"Horário de envio atingido ({hour:02d}:{minute:02d} SP). Iniciando envio...")
+                send_daily_devocional()
+                run_scheduler.last_sent_date = today
+        
         schedule.run_pending()
         time.sleep(60)  # Verifica a cada minuto
     
