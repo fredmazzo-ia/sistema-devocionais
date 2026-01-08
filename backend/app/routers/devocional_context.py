@@ -28,10 +28,9 @@ async def get_historico_context(
         # Calcular data limite
         date_limit = datetime.now() - timedelta(days=days)
         
-        # Buscar devocionais recentes
+        # Buscar devocionais recentes (incluindo os não enviados para contexto)
         devocionais = db.query(Devocional).filter(
-            Devocional.date >= date_limit.date(),
-            Devocional.sent == True  # Apenas os que já foram enviados
+            Devocional.date >= date_limit.date()
         ).order_by(Devocional.date.desc()).all()
         
         if not devocionais:
@@ -113,6 +112,8 @@ async def get_context_for_ai(
                 "contexto_historico": "Esta é a primeira mensagem da série. O tema central é 'Expressar Jesus Cristo' em nossa vida diária.",
                 "versiculos_usados": [],
                 "temas_abordados": [],
+                "palavras_chave": [],
+                "titulos_recentes": [],
                 "direcionamento_sugerido": "Inicie a jornada apresentando o conceito de 'Expressar' e como isso se relaciona com nossa caminhada diária com Cristo.",
                 "conceito_central": "Expressar Jesus em nosso dia a dia"
             }
