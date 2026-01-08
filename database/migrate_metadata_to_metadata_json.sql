@@ -14,6 +14,13 @@ DROP VIEW IF EXISTS vw_devocional_contexto CASCADE;
 -- PASSO 2: Renomear coluna metadata para metadata_json
 -- =====================================================
 
+-- =====================================================
+-- PASSO 2.1: Remover índice GIN ANTES de alterar tipo (IMPORTANTE!)
+-- =====================================================
+
+-- Remover índice GIN se existir (deve ser feito ANTES de alterar o tipo)
+DROP INDEX IF EXISTS idx_devocionais_metadata;
+
 -- Verificar se a coluna metadata existe
 DO $$
 BEGIN
@@ -27,19 +34,19 @@ BEGIN
         ALTER TABLE devocionais RENAME COLUMN metadata TO metadata_json;
         
         -- Alterar tipo de JSONB para TEXT (se necessário)
-        ALTER TABLE devocionais ALTER COLUMN metadata_json TYPE TEXT USING metadata_json::TEXT;
+        -- IMPORTANTE: Converter JSONB para TEXT primeiro
+        ALTER TABLE devocionais ALTER COLUMN metadata_json TYPE TEXT 
+        USING CASE 
+            WHEN metadata_json IS NULL THEN NULL
+            WHEN pg_typeof(metadata_json)::text = 'jsonb' THEN metadata_json::text
+            ELSE metadata_json::text
+        END;
         
         RAISE NOTICE 'Coluna metadata renomeada para metadata_json com sucesso!';
     ELSE
         RAISE NOTICE 'Coluna metadata não existe. Pulando renomeação.';
     END IF;
 END $$;
-
--- =====================================================
--- PASSO 3: Remover índice antigo (se existir)
--- =====================================================
-
-DROP INDEX IF EXISTS idx_devocionais_metadata;
 
 -- =====================================================
 -- PASSO 4: Recriar views atualizadas
