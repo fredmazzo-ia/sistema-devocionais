@@ -1,7 +1,7 @@
 """
 Configuração do banco de dados
 """
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -118,7 +118,7 @@ class Devocional(Base):
     source = Column(String(50), default="n8n")  # Fonte: 'n8n', 'api', 'manual', 'webhook'
     autor = Column(String(100), default="Alex e Daniela Mantovani")
     tema = Column(String(100))  # Tema principal
-    palavras_chave = Column(Text)  # Array de palavras-chave (JSON ou texto separado)
+    palavras_chave = Column(ARRAY(Text))  # Array de palavras-chave
     
     # Status e controle
     sent = Column(Boolean, default=False, index=True)  # Se já foi enviado
