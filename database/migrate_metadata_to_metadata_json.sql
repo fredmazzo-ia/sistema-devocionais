@@ -45,7 +45,7 @@ DROP INDEX IF EXISTS idx_devocionais_metadata;
 -- PASSO 4: Recriar views atualizadas
 -- =====================================================
 
--- View para devocional de hoje
+-- View para devocional de hoje (recriada com metadata_json)
 CREATE OR REPLACE VIEW devocional_hoje AS
 SELECT 
     d.id,
@@ -60,6 +60,7 @@ SELECT
     d.tema,
     d.palavras_chave,
     d.metadata_json,
+    d.source,
     d.sent,
     d.sent_at,
     d.total_sent,
