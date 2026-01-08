@@ -1,5 +1,5 @@
 """
-API principal do sistema de monitoramento de notícias
+API principal do sistema de devocionais
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +10,8 @@ import uvicorn
 from app.database import init_db
 from app.routers import news, monitoring, notifications, devocional
 from app.routers import devocional_context, devocional_test, devocional_context
-from app.scheduler import start_scheduler, stop_scheduler
+# Sistema de monitoramento de notícias desabilitado (não necessário para devocionais)
+# from app.scheduler import start_scheduler, stop_scheduler
 from app.devocional_scheduler import start_scheduler as start_devocional_scheduler, stop_scheduler as stop_devocional_scheduler
 from app.logging_config import setup_logging
 
@@ -23,17 +24,18 @@ async def lifespan(app: FastAPI):
     """Gerencia o ciclo de vida da aplicação"""
     # Inicialização
     init_db()
-    start_scheduler()
+    # Sistema de monitoramento de notícias desabilitado
+    # start_scheduler()
     start_devocional_scheduler()  # Iniciar scheduler de devocionais
     yield
     # Encerramento
-    stop_scheduler()
+    # stop_scheduler()
     stop_devocional_scheduler()  # Parar scheduler de devocionais
 
 
 app = FastAPI(
-    title="Sistema de Monitoramento de Notícias",
-    description="API para monitoramento e raspagem de notícias sobre Assistência Social",
+    title="Sistema de Envio de Devocionais",
+    description="API para envio automático de devocionais via WhatsApp",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -60,7 +62,7 @@ app.include_router(devocional_test.router, prefix="/api", tags=["Devocional Test
 async def root():
     """Endpoint raiz"""
     return {
-        "message": "Sistema de Monitoramento de Notícias - Secretaria da Assistência Social",
+        "message": "Sistema de Envio de Devocionais",
         "status": "online"
     }
 
