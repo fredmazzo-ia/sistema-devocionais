@@ -2,7 +2,7 @@
 Configurações do sistema
 """
 from pydantic_settings import BaseSettings
-from typing import List, Dict
+from typing import List, Dict, Any
 import os
 from dotenv import load_dotenv
 
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./noticias.db"
     
     # Portais de notícias a serem monitorados
-    NEWS_PORTALS: List[Dict[str, str]] = [
+    NEWS_PORTALS: List[Dict[str, Any]] = [
         {
             "name": "Portal Exemplo 1",
             "url": "https://exemplo1.com.br/noticias",
