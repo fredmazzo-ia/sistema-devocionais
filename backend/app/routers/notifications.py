@@ -226,6 +226,100 @@ async def get_instances_status():
         raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
 
 
+@router.post("/instances/{instance_name}/setup-profile")
+async def setup_instance_profile(instance_name: str):
+    """Configura o perfil (nome) de uma instância específica"""
+    try:
+        instance = devocional_service.instance_manager.get_instance_by_name(instance_name)
+        if not instance:
+            raise HTTPException(status_code=404, detail=f"Instância {instance_name} não encontrada")
+        
+        success = devocional_service.instance_manager.set_instance_profile(
+            instance,
+            instance.display_name,
+            "Devocional Diário - Mensagens de fé e esperança"
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Perfil da instância {instance_name} configurado com sucesso",
+                "display_name": instance.display_name
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Erro ao configurar perfil da instância {instance_name}",
+                "error": instance.last_error
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao configurar perfil: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
+@router.post("/instances/{instance_name}/setup-profile")
+async def setup_instance_profile(instance_name: str):
+    """Configura o perfil (nome) de uma instância específica"""
+    try:
+        instance = devocional_service.instance_manager.get_instance_by_name(instance_name)
+        if not instance:
+            raise HTTPException(status_code=404, detail=f"Instância {instance_name} não encontrada")
+        
+        success = devocional_service.instance_manager.set_instance_profile(
+            instance,
+            instance.display_name,
+            "Devocional Diário - Mensagens de fé e esperança"
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Perfil da instância {instance_name} configurado com sucesso",
+                "display_name": instance.display_name
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Erro ao configurar perfil da instância {instance_name}",
+                "error": instance.last_error
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao configurar perfil: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
+@router.post("/instances/setup-all-profiles")
+async def setup_all_profiles():
+    """Configura o perfil (nome) de todas as instâncias"""
+    try:
+        results = []
+        for instance in devocional_service.instance_manager.instances:
+            if instance.enabled:
+                success = devocional_service.instance_manager.set_instance_profile(
+                    instance,
+                    instance.display_name,
+                    "Devocional Diário - Mensagens de fé e esperança"
+                )
+                results.append({
+                    "instance": instance.name,
+                    "success": success,
+                    "display_name": instance.display_name
+                })
+        
+        return {
+            "success": True,
+            "message": "Perfis configurados",
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Erro ao configurar perfis: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
 @router.get("/instances/debug")
 async def debug_instances():
     """Endpoint de debug para verificar configuração das instâncias"""

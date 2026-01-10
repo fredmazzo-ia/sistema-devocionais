@@ -53,6 +53,18 @@ Body:
 }
 ```
 
+### **6. Configurar Perfil (Nome no WhatsApp)**
+```
+POST https://sua-api.com/api/notifications/instances/setup-all-profiles
+```
+*Configura o nome "Devocional Diário" em todas as instâncias*
+
+### **7. Configurar Perfil de Instância Específica**
+```
+POST https://sua-api.com/api/notifications/instances/Devocional-1/setup-profile
+```
+*Substitua "Devocional-1" pelo nome da sua instância*
+
 ---
 
 ## 📋 **Todos os Endpoints**

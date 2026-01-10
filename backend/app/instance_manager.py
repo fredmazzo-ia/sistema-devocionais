@@ -198,14 +198,27 @@ class InstanceManager:
                         found = True
                         state = inst_data.get('state', 'unknown')
                         
+                        # Tentar obter número da instância
+                        phone = inst_data.get('phoneNumber') or inst_data.get('phone') or inst_data.get('number')
+                        if phone and not instance.phone_number:
+                            instance.phone_number = phone
+                            logger.info(f"Número da instância {instance.name} obtido: {phone}")
+                        
                         logger.info(f"Instância {instance.name} encontrada com estado: {state}")
                         
-                        if state in ['open', 'connected']:
+                        # Aceitar vários estados como válidos
+                        if state in ['open', 'connected', 'ready']:
                             instance.status = InstanceStatus.ACTIVE
                             instance.error_count = 0
                             instance.last_check = datetime.now()
-                            logger.info(f"Instância {instance.name} marcada como ACTIVE")
+                            logger.info(f"Instância {instance.name} marcada como ACTIVE (estado: {state})")
                             return True
+                        elif state == 'unknown':
+                            # Se estado é unknown mas instância existe, manter como INACTIVE mas não ERROR
+                            instance.status = InstanceStatus.INACTIVE
+                            instance.last_check = datetime.now()
+                            logger.warning(f"Instância {instance.name} está {state}, marcada como INACTIVE (mas pode funcionar)")
+                            return False
                         else:
                             instance.status = InstanceStatus.INACTIVE
                             instance.last_check = datetime.now()
