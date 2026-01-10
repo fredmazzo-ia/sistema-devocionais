@@ -7,7 +7,18 @@ O sistema agora configura **automaticamente** tudo que você precisa:
 1. **Perfil (Nome)**: Configurado automaticamente na inicialização E antes de cada envio
 2. **vCard**: Enviado automaticamente para novos contatos (se ativado)
 
-## ⚙️ Configuração no `.env`
+## ⚙️ Configuração
+
+### ⚠️ IMPORTANTE: Configuração do Nome do Perfil
+
+**A Evolution API pode não suportar atualização de perfil via API.** Por isso, você precisa configurar o nome **manualmente**:
+
+1. **Abra o WhatsApp** conectado à instância
+2. **Vá em Configurações** → **Perfil**
+3. **Altere o nome** para "Devocional Diário"
+4. **Salve**
+
+Isso precisa ser feito **uma vez** e o nome aparecerá para todos os destinatários.
 
 ### Ativar vCard Automático (Recomendado)
 
@@ -18,7 +29,7 @@ No arquivo `.env` do EasyPanel, adicione ou altere:
 SEND_VCARD_TO_NEW_CONTACTS=true
 ```
 
-**Isso é tudo!** O sistema faz o resto automaticamente.
+O vCard permite que novos contatos salvem seu número facilmente.
 
 ---
 

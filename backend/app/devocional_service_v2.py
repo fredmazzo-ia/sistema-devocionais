@@ -228,8 +228,11 @@ class DevocionalServiceV2:
                 instance_name=instance.name
             )
         
-        # Garantir que o perfil está configurado antes de enviar
-        self._ensure_profile_configured(instance)
+        # Tentar garantir que o perfil está configurado antes de enviar (não bloqueia envio se falhar)
+        try:
+            self._ensure_profile_configured(instance)
+        except Exception as e:
+            logger.debug(f"Erro ao configurar perfil (não crítico, continuando envio): {e}")
         
         # Construir payload
         payload = self._build_payload(phone, message, name)

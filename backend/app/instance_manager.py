@@ -353,9 +353,6 @@ class InstanceManager:
                 "Content-Type": "application/json"
             }
             
-            # Endpoint para atualizar perfil
-            url = f"{instance.api_url}/profile/updateProfileName/{instance.name}"
-            
             payload = {
                 "name": name
             }
@@ -363,20 +360,62 @@ class InstanceManager:
             if status:
                 payload["status"] = status
             
-            response = requests.put(url, json=payload, headers=headers, timeout=10)
+            # Tentar diferentes endpoints da Evolution API
+            endpoints_to_try = [
+                f"{instance.api_url}/profile/updateProfileName/{instance.name}",
+                f"{instance.api_url}/instance/{instance.name}/profile/updateProfileName",
+                f"{instance.api_url}/profile/updateProfileName",
+            ]
+            
+            for url in endpoints_to_try:
+                try:
+                    # Para o último endpoint, adicionar instance no payload
+                    if url.endswith("/profile/updateProfileName") and not url.endswith(f"/{instance.name}"):
+                        payload_with_instance = {**payload, "instance": instance.name}
+                    else:
+                        payload_with_instance = payload
+                    
+                    response = requests.put(url, json=payload_with_instance, headers=headers, timeout=10)
+                    
+                    if response.status_code in [200, 201]:
+                        instance.display_name = name
+                        instance.profile_configured = True
+                        instance.last_profile_config_attempt = datetime.now()
+                        logger.info(f"Perfil da instância {instance.name} atualizado para: {name} (endpoint: {url})")
+                        return True
+                    elif response.status_code == 404:
+                        # Tentar próximo endpoint
+                        logger.debug(f"Endpoint {url} retornou 404, tentando próximo...")
+                        continue
+                    else:
+                        # Outro erro, logar mas continuar tentando
+                        logger.debug(f"Endpoint {url} retornou {response.status_code}: {response.text}")
+                        continue
+                except requests.exceptions.RequestException as e:
+                    logger.debug(f"Erro ao tentar endpoint {url}: {e}")
+                    continue
+            
+            # Se nenhum endpoint funcionou, tentar POST como alternativa
+            logger.info(f"Tentando método POST como alternativa...")
+            url = f"{instance.api_url}/profile/updateProfileName/{instance.name}"
+            response = requests.post(url, json=payload, headers=headers, timeout=10)
             
             if response.status_code in [200, 201]:
                 instance.display_name = name
                 instance.profile_configured = True
                 instance.last_profile_config_attempt = datetime.now()
-                logger.info(f"Perfil da instância {instance.name} atualizado para: {name}")
+                logger.info(f"Perfil da instância {instance.name} atualizado para: {name} (método POST)")
                 return True
-            else:
-                logger.warning(f"Erro ao atualizar perfil: {response.status_code} - {response.text}")
-                instance.profile_configured = False
-                return False
+            
+            # Se ainda não funcionou, logar erro
+            logger.warning(f"Nenhum endpoint funcionou para atualizar perfil. Última resposta: {response.status_code} - {response.text}")
+            logger.warning(f"NOTA: O nome do perfil precisa ser configurado manualmente no Evolution API Manager ou via WhatsApp")
+            instance.profile_configured = False
+            return False
         
         except Exception as e:
             logger.error(f"Erro ao atualizar perfil da instância {instance.name}: {e}")
+            logger.warning(f"NOTA: O nome do perfil pode precisar ser configurado manualmente no Evolution API Manager")
+            instance.profile_configured = False
             return False
 
