@@ -224,3 +224,64 @@ async def get_instances_status():
     except Exception as e:
         logger.error(f"Erro ao obter status das instâncias: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
+@router.get("/instances/debug")
+async def debug_instances():
+    """Endpoint de debug para verificar configuração das instâncias"""
+    try:
+        import json
+        from app.config import settings
+        
+        # Informações de configuração
+        config_info = {
+            "evolution_instances_config": settings.EVOLUTION_INSTANCES,
+            "evolution_api_url": settings.EVOLUTION_API_URL,
+            "evolution_api_key": settings.EVOLUTION_API_KEY[:10] + "..." if settings.EVOLUTION_API_KEY else None,
+            "evolution_instance_name": settings.EVOLUTION_INSTANCE_NAME,
+        }
+        
+        # Tentar parsear instâncias
+        instances_parsed = []
+        try:
+            if settings.EVOLUTION_INSTANCES and settings.EVOLUTION_INSTANCES != "[]":
+                instances_parsed = json.loads(settings.EVOLUTION_INSTANCES)
+        except Exception as e:
+            instances_parsed = {"error": str(e)}
+        
+        # Status das instâncias no manager
+        manager_stats = devocional_service.get_stats()
+        
+        # Verificar cada instância manualmente
+        instance_details = []
+        for inst in devocional_service.instance_manager.instances:
+            detail = {
+                "name": inst.name,
+                "api_url": inst.api_url,
+                "api_key_preview": inst.api_key[:10] + "..." if inst.api_key else None,
+                "status": inst.status.value,
+                "enabled": inst.enabled,
+                "last_check": inst.last_check.isoformat() if inst.last_check else None,
+                "last_error": inst.last_error,
+                "error_count": inst.error_count
+            }
+            
+            # Tentar verificar agora
+            try:
+                health_result = devocional_service.instance_manager.check_instance_health(inst)
+                detail["health_check_now"] = health_result
+                detail["status_after_check"] = inst.status.value
+            except Exception as e:
+                detail["health_check_error"] = str(e)
+            
+            instance_details.append(detail)
+        
+        return {
+            "config": config_info,
+            "instances_parsed": instances_parsed,
+            "manager_stats": manager_stats,
+            "instance_details": instance_details
+        }
+    except Exception as e:
+        logger.error(f"Erro no debug: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")

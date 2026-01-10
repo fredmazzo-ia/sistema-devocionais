@@ -103,6 +103,15 @@ class InstanceManager:
         Returns:
             EvolutionInstance disponível ou None
         """
+        # Primeiro, tentar verificar saúde de instâncias que não foram verificadas recentemente
+        now = datetime.now()
+        for inst in self.instances:
+            if inst.enabled:
+                # Se nunca foi verificada ou foi há mais de 5 minutos, verificar agora
+                if not inst.last_check or (now - inst.last_check).total_seconds() > 300:
+                    logger.info(f"Verificando saúde da instância {inst.name}...")
+                    self.check_instance_health(inst)
+        
         # Filtrar instâncias ativas e habilitadas
         available = [
             inst for inst in self.instances
@@ -112,8 +121,20 @@ class InstanceManager:
             and inst.messages_sent_this_hour < inst.max_messages_per_hour
         ]
         
+        # Se não houver instâncias ACTIVE, tentar usar INACTIVE (pode estar apenas não verificada)
         if not available:
-            logger.warning("Nenhuma instância disponível")
+            logger.warning("Nenhuma instância ACTIVE disponível, tentando instâncias INACTIVE...")
+            available = [
+                inst for inst in self.instances
+                if inst.enabled 
+                and inst.status != InstanceStatus.ERROR
+                and inst.status != InstanceStatus.BLOCKED
+                and inst.messages_sent_today < inst.max_messages_per_day
+                and inst.messages_sent_this_hour < inst.max_messages_per_hour
+            ]
+        
+        if not available:
+            logger.warning(f"Nenhuma instância disponível. Status das instâncias: {[(i.name, i.status.value, i.last_error) for i in self.instances]}")
             return None
         
         # Aplicar estratégia
@@ -154,42 +175,72 @@ class InstanceManager:
             
             url = f"{instance.api_url}/instance/fetchInstances"
             
+            logger.debug(f"Verificando instância {instance.name} em {url}")
+            
             response = requests.get(url, headers=headers, timeout=10)
             
             if response.status_code == 200:
                 instances_data = response.json()
                 
+                # Se retornar lista vazia ou não for lista
+                if not isinstance(instances_data, list):
+                    logger.warning(f"Resposta inesperada da API para {instance.name}: {type(instances_data)}")
+                    instance.status = InstanceStatus.ERROR
+                    instance.last_error = "Resposta da API não é uma lista"
+                    instance.last_check = datetime.now()
+                    return False
+                
                 # Procurar nossa instância
+                found = False
                 for inst_data in instances_data:
-                    if inst_data.get('instanceName') == instance.name:
+                    instance_name = inst_data.get('instanceName') or inst_data.get('name')
+                    if instance_name == instance.name:
+                        found = True
                         state = inst_data.get('state', 'unknown')
+                        
+                        logger.info(f"Instância {instance.name} encontrada com estado: {state}")
                         
                         if state in ['open', 'connected']:
                             instance.status = InstanceStatus.ACTIVE
                             instance.error_count = 0
                             instance.last_check = datetime.now()
+                            logger.info(f"Instância {instance.name} marcada como ACTIVE")
                             return True
                         else:
                             instance.status = InstanceStatus.INACTIVE
                             instance.last_check = datetime.now()
+                            logger.warning(f"Instância {instance.name} está {state}, marcada como INACTIVE")
                             return False
                 
                 # Instância não encontrada
-                instance.status = InstanceStatus.ERROR
-                instance.last_error = "Instância não encontrada"
-                return False
+                if not found:
+                    logger.warning(f"Instância {instance.name} não encontrada na lista. Instâncias disponíveis: {[i.get('instanceName') or i.get('name') for i in instances_data]}")
+                    instance.status = InstanceStatus.ERROR
+                    instance.last_error = f"Instância não encontrada. Disponíveis: {[i.get('instanceName') or i.get('name') for i in instances_data]}"
+                    instance.last_check = datetime.now()
+                    return False
             
             else:
                 instance.status = InstanceStatus.ERROR
-                instance.last_error = f"HTTP {response.status_code}"
+                instance.last_error = f"HTTP {response.status_code}: {response.text[:200]}"
                 instance.error_count += 1
+                instance.last_check = datetime.now()
+                logger.error(f"Erro HTTP ao verificar {instance.name}: {response.status_code} - {response.text[:200]}")
                 return False
         
+        except requests.exceptions.RequestException as e:
+            instance.status = InstanceStatus.ERROR
+            instance.last_error = f"Erro de conexão: {str(e)}"
+            instance.error_count += 1
+            instance.last_check = datetime.now()
+            logger.error(f"Erro de conexão ao verificar saúde da instância {instance.name}: {e}")
+            return False
         except Exception as e:
             instance.status = InstanceStatus.ERROR
             instance.last_error = str(e)
             instance.error_count += 1
-            logger.error(f"Erro ao verificar saúde da instância {instance.name}: {e}")
+            instance.last_check = datetime.now()
+            logger.error(f"Erro inesperado ao verificar saúde da instância {instance.name}: {e}", exc_info=True)
             return False
     
     def check_all_instances(self):

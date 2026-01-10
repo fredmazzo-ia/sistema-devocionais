@@ -75,8 +75,12 @@ class DevocionalServiceV2:
         
         self.instance_manager = InstanceManager(instances_config)
         
-        # Verificar saúde das instâncias na inicialização
-        self.instance_manager.check_all_instances()
+        # Verificar saúde das instâncias na inicialização (não falha se não conseguir)
+        try:
+            self.instance_manager.check_all_instances()
+            logger.info(f"Health check inicial concluído para {len(self.instance_manager.instances)} instâncias")
+        except Exception as e:
+            logger.warning(f"Erro no health check inicial (não crítico): {e}. Instâncias serão verificadas no primeiro uso.")
         
         # Configurações de rate limiting (agora por instância)
         self.delay_between_messages = settings.DELAY_BETWEEN_MESSAGES
