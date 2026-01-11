@@ -46,6 +46,7 @@ class DevocionalEnvio(Base):
     # Timestamps
     sent_at = Column(DateTime, default=datetime.utcnow, index=True)
     scheduled_for = Column(DateTime, index=True)  # Para envios agendados
+    created_at = Column(DateTime, default=datetime.utcnow)  # Data de criação do registro
 
 
 class DevocionalContato(Base):
@@ -97,7 +98,44 @@ class Devocional(Base):
     total_sent = Column(Integer, default=0)  # Quantas vezes foi enviado
     
     # Metadados adicionais (JSON)
-    metadata_json = Column(Text)  # JSON com metadados extras (renomeado de 'metadata' pois é palavra reservada)
+    metadata_json = Column(Text)  # JSON com metadados adicionais
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AgendamentoEnvio(Base):
+    """Modelo para rastrear agendamentos de envio de devocionais"""
+    __tablename__ = "agendamento_envios"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Relacionamento
+    devocional_id = Column(Integer, nullable=True, index=True)  # FK para devocionais
+    contato_id = Column(Integer, nullable=True, index=True)  # FK para contatos (opcional, pode ser envio em massa)
+    
+    # Informações do agendamento
+    scheduled_for = Column(DateTime, nullable=False, index=True)  # Quando deve ser enviado
+    sent_at = Column(DateTime, nullable=True, index=True)  # Quando foi realmente enviado
+    
+    # Status
+    status = Column(String(20), default="pending", index=True)  # pending, sent, failed, cancelled
+    error_message = Column(Text)  # Mensagem de erro (se houver)
+    
+    # Informações do envio
+    recipient_phone = Column(String(20), nullable=False)  # Telefone do destinatário
+    recipient_name = Column(String(100))  # Nome do destinatário
+    message_text = Column(Text)  # Texto que será/enviado
+    
+    # Instância que deve enviar
+    instance_name = Column(String(100))  # Nome da instância Evolution API
+    
+    # Tipo de agendamento
+    agendamento_type = Column(String(20), default="automatico")  # automatico, manual, recorrente
+    
+    # Metadados
+    metadata_json = Column(Text)  # JSON com metadados adicionais
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -110,7 +148,7 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    name = Column(String(100), nullable=False)
+    name = Column(String(100))
     hashed_password = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
@@ -121,16 +159,10 @@ class User(Base):
     last_login = Column(DateTime, nullable=True)
 
 
-def init_db():
-    """Inicializa o banco de dados criando as tabelas"""
-    Base.metadata.create_all(bind=engine)
-
-
+# Função para obter sessão do banco
 def get_db():
-    """Dependency para obter sessão do banco de dados"""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
