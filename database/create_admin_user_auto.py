@@ -77,7 +77,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description='Criar usuário admin')
-    parser.add_argument('--email', default='admin@devocional.com', help='Email do admin')
+    parser.add_argument('--email', default='fredmazzo@gmail.com', help='Email do admin')
     parser.add_argument('--password', default='admin123', help='Senha do admin')
     parser.add_argument('--name', default='Administrador', help='Nome do admin')
     
