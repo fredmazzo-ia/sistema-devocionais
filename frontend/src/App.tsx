@@ -5,6 +5,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout/Layout'
 import Login from './pages/Login/Login'
 import Dashboard from './pages/Dashboard/Dashboard'
+import Contatos from './pages/Contatos/Contatos'
 import './App.css'
 
 function App() {
@@ -24,6 +25,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contatos"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Contatos />
               </Layout>
             </ProtectedRoute>
           }
