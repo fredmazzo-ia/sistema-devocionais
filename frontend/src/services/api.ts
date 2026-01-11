@@ -4,6 +4,7 @@ import type {
   Contato,
   Envio,
   Stats,
+  Instancia,
   LoginRequest,
   LoginResponse,
 } from '../types'
