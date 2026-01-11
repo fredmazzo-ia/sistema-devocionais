@@ -6,6 +6,8 @@ import Layout from './components/Layout/Layout'
 import Login from './pages/Login/Login'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Contatos from './pages/Contatos/Contatos'
+import Devocionais from './pages/Devocionais/Devocionais'
+import Envios from './pages/Envios/Envios'
 import './App.css'
 
 function App() {
@@ -35,6 +37,26 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Contatos />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/devocionais"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Devocionais />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/envios"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Envios />
               </Layout>
             </ProtectedRoute>
           }

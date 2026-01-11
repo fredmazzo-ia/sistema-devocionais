@@ -148,11 +148,24 @@ export const contatoApi = {
 // ============================================
 
 export const envioApi = {
-  list: async (skip = 0, limit = 50): Promise<Envio[]> => {
-    const response = await api.get<Envio[]>('/devocional/envios', {
-      params: { skip, limit },
-    })
-    return response.data
+  list: async (skip = 0, limit = 50, status?: string): Promise<Envio[]> => {
+    const params: any = { skip, limit }
+    if (status) params.status = status
+    const response = await api.get<Envio[]>('/devocional/envios', { params })
+    // Adaptar formato do backend para o frontend
+    return response.data.map((e: any) => ({
+      id: e.id,
+      devocional_id: e.devocional_id || null,
+      recipient_phone: e.recipient_phone,
+      recipient_name: e.recipient_name || null,
+      message: e.message || '',
+      status: e.status,
+      instance_name: e.instance_name || null,
+      error: e.error_message || e.error || null,
+      retry_count: e.retry_count || 0,
+      sent_at: e.sent_at || null,
+      created_at: e.created_at || e.sent_at || new Date().toISOString(),
+    }))
   },
 
   send: async (data: {
