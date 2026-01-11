@@ -197,25 +197,47 @@ export const statsApi = {
       
       // Verificar se já está no formato correto
       if (data && 'total_sent' in data && 'instances' in data) {
+        // Garantir que instances seja um array
+        let instances = data.instances
+        if (!Array.isArray(instances)) {
+          // Se instances é um objeto com 'instances' dentro, extrair
+          if (instances && typeof instances === 'object' && 'instances' in instances) {
+            instances = instances.instances
+          } else {
+            instances = []
+          }
+        }
+        
         return {
           total_sent: (data.total_sent ?? 0) as number,
           total_failed: (data.total_failed ?? 0) as number,
           total_blocked: (data.total_blocked ?? 0) as number,
           total_retries: (data.total_retries ?? 0) as number,
-          instances: (data.instances ?? []) as Instancia[],
+          instances: (instances ?? []) as Instancia[],
           distribution_strategy: (data.distribution_strategy ?? 'round_robin') as string,
           shield: data.shield
         }
       }
       
       // Se retornou objeto com 'instances' dentro
-      if (data && data.instances && Array.isArray(data.instances)) {
+      if (data && data.instances) {
+        // Garantir que instances seja um array
+        let instances = data.instances
+        if (!Array.isArray(instances)) {
+          // Se instances é um objeto com 'instances' dentro, extrair
+          if (instances && typeof instances === 'object' && 'instances' in instances) {
+            instances = instances.instances
+          } else {
+            instances = []
+          }
+        }
+        
         return {
           total_sent: (data.total_sent ?? 0) as number,
           total_failed: (data.total_failed ?? 0) as number,
           total_blocked: (data.total_blocked ?? 0) as number,
           total_retries: (data.total_retries ?? 0) as number,
-          instances: data.instances as Instancia[],
+          instances: instances as Instancia[],
           distribution_strategy: (data.distribution_strategy ?? 'round_robin') as string,
           shield: data.shield
         }

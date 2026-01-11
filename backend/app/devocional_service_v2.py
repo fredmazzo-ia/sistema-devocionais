@@ -630,9 +630,12 @@ class DevocionalServiceV2:
         """Retorna estatísticas do serviço e instâncias"""
         instance_stats = self.instance_manager.get_stats()
         
+        # instance_stats é um dict com 'instances' dentro, precisamos extrair a lista
+        instances_list = instance_stats.get('instances', [])
+        
         stats = {
             **self.stats,
-            'instances': instance_stats,
+            'instances': instances_list,  # Lista de instâncias, não o dict completo
             'distribution_strategy': self.distribution_strategy
         }
         
