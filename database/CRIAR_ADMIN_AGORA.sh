@@ -1,16 +1,14 @@
-#!/usr/bin/env python3
-"""
-Script para criar admin usando MESMO código do backend
-Execute: python3 /app/database/criar_admin_direto.py
-"""
+#!/bin/bash
+# Execute este script no terminal do EasyPanel
+# bash database/CRIAR_ADMIN_AGORA.sh
+
+python3 << 'PYEOF'
 import sys
 sys.path.insert(0, '/app')
 
 from app.database import SessionLocal, User, init_db
 from app.auth import get_password_hash, verify_password
-from sqlalchemy.exc import IntegrityError
 
-# Inicializar
 init_db()
 db = SessionLocal()
 
@@ -44,22 +42,23 @@ try:
     if test_pass:
         print("SUCESSO! Usuario criado e senha verificada!")
     else:
-        print("ERRO! Senha nao confere apos criar!")
+        print("ERRO! Senha nao confere!")
     print("=" * 80)
     print(f"ID: {user.id}")
     print(f"Email: {user.email}")
-    print(f"Hash: {user.hashed_password[:50]}...")
     print(f"Teste senha: {test_pass}")
     print()
     print("CREDENCIAIS:")
     print(f"Email: {email}")
     print(f"Senha: {password}")
+    print("=" * 80)
     
 except Exception as e:
     db.rollback()
-    print(f"❌ ERRO: {e}")
+    print(f"ERRO: {e}")
     import traceback
     traceback.print_exc()
 finally:
     db.close()
+PYEOF
 
