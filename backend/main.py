@@ -54,17 +54,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Incluir routers
+# Configurar arquivos estáticos do frontend (se buildado)
+# IMPORTANTE: Deve ser chamado ANTES dos routers para não interceptar rotas /api
+setup_static_files(app)
+
+# Incluir routers (DEPOIS do setup_static_files para garantir que rotas /api não sejam interceptadas)
 app.include_router(auth.router, prefix="/api", tags=["Autenticação"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notificações"])
 app.include_router(notifications_router, prefix="/api", tags=["Notificações n8n"])
 app.include_router(devocional.router, prefix="/api", tags=["Devocional"])
 app.include_router(devocional_context.router, prefix="/api", tags=["Devocional Context"])
 app.include_router(devocional_test.router, prefix="/api", tags=["Devocional Test"])
-
-# Configurar arquivos estáticos do frontend (se buildado)
-# Deve ser chamado ANTES de definir rotas que podem conflitar
-setup_static_files(app)
 
 
 @app.get("/api/status")
