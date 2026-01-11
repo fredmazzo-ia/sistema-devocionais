@@ -6,8 +6,8 @@ python3 << 'PYEOF'
 import sys
 sys.path.insert(0, '/app')
 
+import bcrypt
 from app.database import SessionLocal, User, init_db
-from app.auth import get_password_hash, verify_password
 
 init_db()
 db = SessionLocal()
@@ -21,12 +21,19 @@ try:
     db.query(User).filter(User.email == email).delete()
     db.commit()
     
-    # Criar novo
-    hashed = get_password_hash(password)
+    # Gerar hash com bcrypt DIRETO (evita problema do passlib)
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(12))
+    hashed_str = hashed.decode('utf-8')
+    
+    # Criar usuário
     user = User(
         email=email,
         name=name,
-        hashed_password=hashed,
+        hashed_password=hashed_str,
         is_admin=True,
         is_active=True
     )
@@ -36,7 +43,7 @@ try:
     
     # TESTAR se funciona
     test_user = db.query(User).filter(User.email == email).first()
-    test_pass = verify_password(password, test_user.hashed_password)
+    test_pass = bcrypt.checkpw(password_bytes, test_user.hashed_password.encode('utf-8'))
     
     print("=" * 80)
     if test_pass:
