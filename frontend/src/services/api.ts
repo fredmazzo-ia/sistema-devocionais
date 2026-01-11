@@ -180,6 +180,15 @@ export const envioApi = {
 
 export const statsApi = {
   get: async (): Promise<Stats> => {
+    const defaultStats: Stats = {
+      total_sent: 0,
+      total_failed: 0,
+      total_blocked: 0,
+      total_retries: 0,
+      instances: [],
+      distribution_strategy: 'round_robin'
+    }
+
     try {
       // Tentar primeiro o endpoint de notificações que tem formato mais completo
       const response = await api.get<any>('/notifications/instances')
@@ -187,20 +196,28 @@ export const statsApi = {
       
       // Verificar se já está no formato correto
       if (data && 'total_sent' in data && 'instances' in data) {
-        return data as Stats
+        return {
+          total_sent: data.total_sent ?? 0,
+          total_failed: data.total_failed ?? 0,
+          total_blocked: data.total_blocked ?? 0,
+          total_retries: data.total_retries ?? 0,
+          instances: data.instances ?? [],
+          distribution_strategy: data.distribution_strategy ?? 'round_robin',
+          shield: data.shield
+        }
       }
       
       // Se retornou objeto com 'instances' dentro
       if (data && data.instances && Array.isArray(data.instances)) {
         return {
-          total_sent: data.total_sent || 0,
-          total_failed: data.total_failed || 0,
-          total_blocked: data.total_blocked || 0,
-          total_retries: data.total_retries || 0,
+          total_sent: data.total_sent ?? 0,
+          total_failed: data.total_failed ?? 0,
+          total_blocked: data.total_blocked ?? 0,
+          total_retries: data.total_retries ?? 0,
           instances: data.instances,
-          distribution_strategy: data.distribution_strategy || 'round_robin',
+          distribution_strategy: data.distribution_strategy ?? 'round_robin',
           shield: data.shield
-        } as Stats
+        }
       }
     } catch (err) {
       console.warn('Erro ao buscar stats de /notifications/instances:', err)
@@ -213,35 +230,36 @@ export const statsApi = {
       
       // Se já está no formato correto, retornar direto
       if ('total_sent' in data && 'instances' in data) {
-        return data as Stats
+        return {
+          total_sent: data.total_sent ?? 0,
+          total_failed: data.total_failed ?? 0,
+          total_blocked: data.total_blocked ?? 0,
+          total_retries: data.total_retries ?? 0,
+          instances: data.instances ?? [],
+          distribution_strategy: data.distribution_strategy ?? 'round_robin',
+          shield: data.shield
+        }
       }
       
       // Se está no formato antigo {stats: {...}, instance_status: {...}}
       if (data.stats) {
         const stats = data.stats
         return {
-          total_sent: stats.total_sent || 0,
-          total_failed: stats.total_failed || 0,
-          total_blocked: stats.total_blocked || 0,
-          total_retries: stats.total_retries || 0,
-          instances: stats.instances || [],
-          distribution_strategy: stats.distribution_strategy || 'round_robin',
+          total_sent: stats.total_sent ?? 0,
+          total_failed: stats.total_failed ?? 0,
+          total_blocked: stats.total_blocked ?? 0,
+          total_retries: stats.total_retries ?? 0,
+          instances: stats.instances ?? [],
+          distribution_strategy: stats.distribution_strategy ?? 'round_robin',
           shield: stats.shield
-        } as Stats
+        }
       }
     } catch (err2) {
       console.warn('Erro ao buscar stats de /devocional/stats:', err2)
     }
     
     // Se ambos falharem, retornar estrutura vazia
-    return {
-      total_sent: 0,
-      total_failed: 0,
-      total_blocked: 0,
-      total_retries: 0,
-      instances: [],
-      distribution_strategy: 'round_robin'
-    }
+    return defaultStats
   },
 }
 
