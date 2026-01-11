@@ -216,11 +216,21 @@ class InstanceManager:
                             logger.info(f"Instância {instance.name} marcada como ACTIVE (estado: {state})")
                             return True
                         elif state == 'unknown':
-                            # Se estado é unknown mas instância existe, manter como INACTIVE mas não ERROR
-                            instance.status = InstanceStatus.INACTIVE
-                            instance.last_check = datetime.now()
-                            logger.warning(f"Instância {instance.name} está {state}, marcada como INACTIVE (mas pode funcionar)")
-                            return False
+                            # Se estado é unknown mas instância existe e funcionou recentemente, considerar ACTIVE
+                            # Verificar se houve envios recentes (últimas 24h)
+                            if instance.messages_sent_today > 0 or (instance.last_message_time and 
+                                (datetime.now() - instance.last_message_time).total_seconds() < 86400):
+                                instance.status = InstanceStatus.ACTIVE
+                                instance.error_count = 0
+                                instance.last_check = datetime.now()
+                                logger.info(f"Instância {instance.name} com estado unknown mas funcionou recentemente, marcada como ACTIVE")
+                                return True
+                            else:
+                                # Se não funcionou recentemente, marcar como INACTIVE mas não ERROR
+                                instance.status = InstanceStatus.INACTIVE
+                                instance.last_check = datetime.now()
+                                logger.warning(f"Instância {instance.name} está {state}, marcada como INACTIVE (mas pode funcionar)")
+                                return False
                         else:
                             instance.status = InstanceStatus.INACTIVE
                             instance.last_check = datetime.now()
