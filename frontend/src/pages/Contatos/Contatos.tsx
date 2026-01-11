@@ -20,7 +20,7 @@ export default function Contatos() {
   const loadContatos = async () => {
     try {
       setLoading(true)
-      const data = await contatoApi.list(0, 1000)
+      const data = await contatoApi.list(0, 1000, false) // false = buscar todos (ativos e inativos)
       setContatos(data)
       setError(null)
     } catch (err: any) {
