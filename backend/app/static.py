@@ -36,22 +36,9 @@ def setup_static_files(app):
         # Servir outros arquivos estáticos
         app.mount("/static", StaticFiles(directory=str(FRONTEND_BUILD_PATH)), name="static")
         
-        # Servir index.html para rotas do frontend (deve ser o último)
-        @app.get("/{full_path:path}", include_in_schema=False)
-        async def serve_frontend(full_path: str, request: Request):
-            # Se começar com /api ou /health, não servir frontend (deixar passar para rotas da API)
-            if full_path.startswith("api/") or full_path == "api" or full_path.startswith("health"):
-                raise HTTPException(status_code=404, detail="Not found")
-            
-            # Servir index.html para todas as outras rotas
-            index_path = FRONTEND_BUILD_PATH / "index.html"
-            if index_path.exists():
-                return FileResponse(
-                    str(index_path),
-                    media_type="text/html"
-                )
-            
-            raise HTTPException(status_code=404, detail="Frontend index not found")
+        # NÃO registrar rota catch-all aqui - será registrada DEPOIS dos routers
+        # Isso evita interceptar rotas /api
+        pass
     else:
         # Se não tiver build, manter endpoint raiz original
         pass
