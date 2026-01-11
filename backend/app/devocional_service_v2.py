@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from app.config import settings
 from app.instance_manager import InstanceManager, EvolutionInstance, InstanceStatus
 from app.vcard_service import VCardService
+from app.shield_service import ShieldService
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,27 @@ class DevocionalServiceV2:
         
         # Estratégia de distribuição
         self.distribution_strategy = settings.EVOLUTION_INSTANCE_STRATEGY
+        
+        # Serviço de blindagem
+        if settings.SHIELD_ENABLED:
+            self.shield = ShieldService(
+                delay_variation=settings.DELAY_VARIATION,
+                break_interval=settings.BREAK_INTERVAL,
+                break_duration_min=settings.BREAK_DURATION_MIN,
+                break_duration_max=settings.BREAK_DURATION_MAX,
+                min_engagement_score=settings.MIN_ENGAGEMENT_SCORE,
+                adaptive_limits_enabled=settings.ADAPTIVE_LIMITS_ENABLED,
+                block_detection_enabled=settings.BLOCK_DETECTION_ENABLED
+            )
+            # Sincronizar limites base
+            self.shield.base_hourly_limit = settings.MAX_MESSAGES_PER_HOUR
+            self.shield.base_daily_limit = settings.MAX_MESSAGES_PER_DAY
+            self.shield.current_hourly_limit = settings.MAX_MESSAGES_PER_HOUR
+            self.shield.current_daily_limit = settings.MAX_MESSAGES_PER_DAY
+            logger.info("ShieldService habilitado")
+        else:
+            self.shield = None
+            logger.info("ShieldService desabilitado")
         
         logger.info(f"DevocionalServiceV2 inicializado com {len(self.instance_manager.instances)} instâncias")
     
@@ -247,6 +269,25 @@ class DevocionalServiceV2:
             
             response = requests.post(url, json=payload, headers=headers, timeout=30)
             
+            # Detecção de bloqueio via ShieldService
+            if self.shield:
+                response_dict = {
+                    "status_code": response.status_code,
+                    "error": response.text if response.status_code != 200 else None,
+                    "status": "success" if response.status_code in [200, 201] else "failed"
+                }
+                if self.shield.analyze_response_for_block(response_dict):
+                    logger.error(f"BLOQUEIO DETECTADO para instância {instance.name}!")
+                    instance.status = InstanceStatus.BLOCKED
+                    self.stats['total_blocked'] += 1
+                    return MessageResult(
+                        success=False,
+                        status=MessageStatus.BLOCKED,
+                        error="Bloqueio detectado pelo sistema de blindagem",
+                        retry_count=retry_count,
+                        instance_name=instance.name
+                    )
+            
             if response.status_code in [200, 201]:
                 response_data = response.json()
                 
@@ -255,6 +296,14 @@ class DevocionalServiceV2:
                         error_msg = response_data.get('message', 'Erro desconhecido')
                         logger.error(f"Erro na API {instance.name}: {error_msg}")
                         self.instance_manager.update_instance_stats(instance, success=False)
+                        
+                        # Atualizar taxa de sucesso no shield
+                        if self.shield:
+                            self.shield.update_success_rate(
+                                self.stats['total_sent'],
+                                self.stats['total_sent'] + self.stats['total_failed'] + 1
+                            )
+                        
                         return MessageResult(
                             success=False,
                             status=MessageStatus.FAILED,
@@ -273,6 +322,12 @@ class DevocionalServiceV2:
                     # Atualizar estatísticas da instância
                     self.instance_manager.update_instance_stats(instance, success=True)
                     self.stats['total_sent'] += 1
+                    
+                    # Atualizar taxa de sucesso no shield
+                    if self.shield:
+                        total_attempts = self.stats['total_sent'] + self.stats['total_failed']
+                        self.shield.update_success_rate(self.stats['total_sent'], total_attempts)
+                        self.shield.metrics.total_messages_sent += 1
                     
                     logger.info(f"Mensagem enviada com sucesso para {phone} via {instance.name} (ID: {message_id})")
                     
@@ -429,15 +484,50 @@ class DevocionalServiceV2:
         
         logger.info(f"Iniciando envio em massa para {len(contacts)} contatos")
         
+        # Verificar se deve pausar (bloqueio detectado)
+        if self.shield and self.shield.should_pause_sending():
+            logger.error("ENVIOS PAUSADOS: Bloqueio detectado pelo sistema de blindagem")
+            return [MessageResult(
+                success=False,
+                status=MessageStatus.BLOCKED,
+                error="Envio pausado devido a bloqueio detectado"
+            )]
+        
+        # Verificar horário seguro
+        if self.shield and not self.shield.is_safe_send_time():
+            logger.warning("Horário não seguro para envio. Aguardando horário seguro...")
+            # Opcional: retornar erro ou aguardar
+            # Por enquanto, apenas loga o aviso
+        
         # Resetar contadores das instâncias
         self.instance_manager.reset_daily_counters()
         self.instance_manager.reset_hourly_counters()
+        
+        # Ajustar limites adaptativos se habilitado
+        if self.shield:
+            self.shield.adjust_limits()
+            # Atualizar limites das instâncias com limites adaptativos
+            hourly_limit, daily_limit = self.shield.get_current_limits()
+            for inst in self.instance_manager.instances:
+                inst.max_messages_per_hour = hourly_limit
+                inst.max_messages_per_day = daily_limit
         
         for i, contact in enumerate(contacts, 1):
             phone = contact.get('phone', '')
             name = contact.get('name')
             
             logger.info(f"Processando contato {i}/{len(contacts)}: {name or phone}")
+            
+            # Verificar engajamento (se shield habilitado)
+            if self.shield and not self.shield.should_send_to_contact(phone):
+                logger.info(f"Pulando contato {phone}: score de engajamento muito baixo")
+                results.append(MessageResult(
+                    success=False,
+                    status=MessageStatus.FAILED,
+                    error="Score de engajamento muito baixo",
+                    instance_name=None
+                ))
+                continue
             
             # Obter instância disponível
             instance = self.instance_manager.get_available_instance(self.distribution_strategy)
@@ -471,9 +561,19 @@ class DevocionalServiceV2:
                 except Exception as e:
                     logger.warning(f"Erro ao verificar se é novo contato: {e}")
             
+            # Verificar pausa estratégica
+            if self.shield and self.shield.should_take_break():
+                self.shield.take_break()
+            
             # Enviar mensagem
             result = self.send_devocional(phone, message, name, retry=True)
             results.append(result)
+            
+            # Atualizar engajamento (assumindo que não houve resposta por enquanto)
+            # Em produção, isso seria atualizado quando houver resposta real
+            if self.shield:
+                self.shield.update_engagement(phone, responded=False)
+                self.shield.metrics.messages_since_break += 1
             
             # Se enviou com sucesso e é novo contato, enviar vCard
             if result.success and is_new_contact and self.send_vcard_to_new:
@@ -509,10 +609,15 @@ class DevocionalServiceV2:
                 except Exception as e:
                     logger.error(f"Erro ao enviar vCard para {phone}: {e}", exc_info=True)
             
-            # Aguardar antes da próxima mensagem
+            # Aguardar antes da próxima mensagem (com delay randomizado se shield habilitado)
             if i < len(contacts) and delay_time > 0:
-                logger.debug(f"Aguardando {delay_time}s antes da próxima mensagem...")
-                time.sleep(delay_time)
+                if self.shield:
+                    randomized_delay = self.shield.get_randomized_delay(delay_time)
+                    logger.debug(f"Aguardando {randomized_delay:.2f}s (randomizado de {delay_time}s) antes da próxima mensagem...")
+                    time.sleep(randomized_delay)
+                else:
+                    logger.debug(f"Aguardando {delay_time}s antes da próxima mensagem...")
+                    time.sleep(delay_time)
         
         # Log resumo
         sent = sum(1 for r in results if r.success)
@@ -525,11 +630,17 @@ class DevocionalServiceV2:
         """Retorna estatísticas do serviço e instâncias"""
         instance_stats = self.instance_manager.get_stats()
         
-        return {
+        stats = {
             **self.stats,
             'instances': instance_stats,
             'distribution_strategy': self.distribution_strategy
         }
+        
+        # Adicionar métricas de blindagem se habilitado
+        if self.shield:
+            stats['shield'] = self.shield.get_metrics()
+        
+        return stats
     
     def check_all_instances_health(self):
         """Verifica saúde de todas as instâncias"""

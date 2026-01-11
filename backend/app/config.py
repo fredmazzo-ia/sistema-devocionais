@@ -49,6 +49,16 @@ class Settings(BaseSettings):
     MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "3"))  # tentativas em caso de falha
     RETRY_DELAY: float = float(os.getenv("RETRY_DELAY", "5.0"))  # segundos entre tentativas
     
+    # Configurações de Blindagem Avançada
+    SHIELD_ENABLED: bool = os.getenv("SHIELD_ENABLED", "true").lower() == "true"
+    DELAY_VARIATION: float = float(os.getenv("DELAY_VARIATION", "0.3"))  # 30% de variação
+    BREAK_INTERVAL: int = int(os.getenv("BREAK_INTERVAL", "50"))  # Mensagens entre pausas
+    BREAK_DURATION_MIN: float = float(os.getenv("BREAK_DURATION_MIN", "15.0"))  # Pausa mínima (segundos)
+    BREAK_DURATION_MAX: float = float(os.getenv("BREAK_DURATION_MAX", "30.0"))  # Pausa máxima (segundos)
+    MIN_ENGAGEMENT_SCORE: float = float(os.getenv("MIN_ENGAGEMENT_SCORE", "0.3"))  # Score mínimo para enviar
+    ADAPTIVE_LIMITS_ENABLED: bool = os.getenv("ADAPTIVE_LIMITS_ENABLED", "true").lower() == "true"
+    BLOCK_DETECTION_ENABLED: bool = os.getenv("BLOCK_DETECTION_ENABLED", "true").lower() == "true"
+    
     # Lista de contatos para devocionais
     DEVOCIONAL_CONTACTS: List[Dict[str, str]] = [
         # Exemplo:

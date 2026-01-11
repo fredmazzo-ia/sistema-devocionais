@@ -1,0 +1,290 @@
+{
+  "name": "Criação Devocional",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 3,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        -128
+      ],
+      "id": "8457a9cb-ba81-40b7-b782-1104c17347e3",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dateTimeTool",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        112
+      ],
+      "id": "36dc4387-4a92-48bb-869f-a4c3a6ba19b1",
+      "name": "Data"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        992,
+        96
+      ],
+      "id": "731e6d63-9b53-4012-9464-82bebb31ca27",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "aySuiq5yavDaRHby",
+          "name": "Devocional"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://imobmiq-devocional.90qhxz.easypanel.host/api/devocional/context/para-ia?days=30",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        304,
+        -128
+      ],
+      "id": "0f15fc73-151a-4135-92bc-260954e44e36",
+      "name": "Busca Contexto"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        496,
+        80
+      ],
+      "id": "fa892dc2-c72a-4b67-a9e2-3f6b1a94ae08",
+      "name": "Gemini Analista",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "aySuiq5yavDaRHby",
+          "name": "Devocional"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você é um especialista em análise de conteúdo devocional e jornadas espirituais.\n\nAnalise o histórico de devocionais fornecido e extraia:\n\n1. **Temas já abordados**: Liste os principais temas/conceitos já trabalhados\n2. **Versículos já usados**: Liste todas as referências bíblicas já utilizadas (para evitar repetição)\n3. **Progressão temática**: Identifique a evolução do tema \"Expressar\" ao longo do tempo\n4. **Palavras-chave recorrentes**: Identifique palavras/conceitos que aparecem frequentemente\n5. **Gaps temáticos**: Sugira temas/conceitos relacionados a \"Expressar\" que ainda não foram explorados\n6. **Próximo direcionamento**: Sugira o próximo passo na jornada espiritual, considerando:\n   - O que já foi trabalhado\n   - O que falta abordar\n   - A progressão natural da fé\n   - O tema central \"Expressar\"\n\n## Histórico Fornecido:\n\nContexto: {{ $json.contexto_historico }}\n\nVersículos já usados: {{ $json.versiculos_usados }}\n\nTemas abordados: {{ $json.temas_abordados }}\n\nPalavras-chave: {{ $json.palavras_chave }}\n\n## Formato de Saída (JSON):\n\nRetorne APENAS um objeto JSON válido, SEM markdown code blocks:\n\n{\n  \"analise\": {\n    \"temas_abordados\": [\"tema1\", \"tema2\"],\n    \"versiculos_usados\": [\"referencia1\", \"referencia2\"],\n    \"progressao\": \"Descrição da evolução temática\",\n    \"palavras_chave\": [\"palavra1\", \"palavra2\"]\n  },\n  \"sugestao\": {\n    \"tema_sugerido\": \"Tema para o próximo devocional\",\n    \"conceito_central\": \"Conceito específico a ser trabalhado\",\n    \"versiculos_sugeridos\": [\"referencia1\", \"referencia2\"],\n    \"direcionamento\": \"Como este devocional deve avançar na jornada (máx 150 palavras)\",\n    \"contexto_historico\": \"Resumo do que já foi trabalhado (máx 200 palavras)\"\n  }\n}\n\n## Regras:\n- Seja específico e prático\n- Evite repetir temas muito recentes\n- Sugira progressão natural e coerente\n- Mantenha foco no tema \"Expressar\"\n- Considere a jornada espiritual como uma evolução contínua\n- Retorne APENAS o JSON, sem texto adicional\n```\n\n## 🔧 Configuração no n8n\n\n**Nó: OpenAI / LangChain**\n\n- **Model**: `gpt-4` ou `gpt-3.5-turbo`\n- **Temperature**: `0.7`\n- **Max Tokens**: `1000`\n- **System Message**: (deixe vazio ou use o prompt acima)\n- **User Message**: (use o prompt acima)\n\n**Input (se necessário):**\n```json\n{\n  \"historico\": \"{{ $json.contexto_historico }}\",\n  \"versiculos\": \"{{ $json.versiculos_usados }}\",\n  \"temas\": \"{{ $json.temas_abordados }}\"\n}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        512,
+        -128
+      ],
+      "id": "abb63237-fb24-4b2b-8c3c-d14381a878c9",
+      "name": "Analisar Histórico"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Você é um Pastor experiente, cheio de unção e sabedoria, especializado em pregação bíblica poderosa, inspiradora e transformadora.\n\n## CONTEXTO DA JORNADA:\n\n{{ $json.sugestao.contexto_historico || $('Buscar Contexto').item.json.contexto_historico || \"Esta é a primeira mensagem da série. O tema central é 'Expressar Jesus Cristo' em nossa vida diária.\" }}\n\n**Tema Central da Série**: Expressar Jesus Cristo em nossa vida diária\n**Direcionamento de Hoje**: {{ $json.sugestao.direcionamento || $('Buscar Contexto').item.json.direcionamento_sugerido || \"Inicie a jornada apresentando o conceito de 'Expressar' e como isso se relaciona com nossa caminhada diária com Cristo.\" }}\n**Conceito a Trabalhar**: {{ $json.sugestao.conceito_central || $('Buscar Contexto').item.json.conceito_central || \"Expressar Jesus em nosso dia a dia\" }}\n\n## SUA MISSÃO:\n\nCriar UM devocional diário que:\n1. Avança na jornada espiritual de forma coerente\n2. Trabalha o conceito sugerido de forma natural e prática\n3. Conecta com o tema \"Expressar\" sem repetição excessiva\n4. Usa versículos INÉDITOS (não repetir: {{ $json.analise.versiculos_usados || $('Buscar Contexto').item.json.versiculos_usados || \"Nenhum versículo usado ainda\" }})\n5. Mantém continuidade com devocionais anteriores\n\n## ESTRUTURA DO DEVOCIONAL:\n\n**IMPORTANTE**: NÃO inclua saudação personalizada com nome. O sistema adicionará automaticamente \"Bom dia/Boa tarde/Boa noite, *[Nome]*\" baseado no horário e contato.\n\n### 1. Data Formatada\n- \"📅 [Dia da semana], [dia] de [mês] de [ano]\\n\\n\"\n- Data de hoje: {{ $now.setZone('America/Sao_Paulo').toFormat('cccc, dd/MM/yyyy') }}\n\n### 2. Título Inspirador\n- \"🌟 *[Título]*\\n\\n\"\n- Curto, conectado ao(s) versículo(s) e ao conceito do dia\n- Relacionado ao tema \"Expressar\" de forma sutil\n\n### 3. Versículos (DOIS, sempre inéditos)\n- \"📖 *Versículo Principal:*\\n\\\"[versículo completo]\\\" ([referência] ACF)\\n\\n\"\n- \"📖 *Versículo de Apoio:*\\n\\\"[versículo completo]\\\" ([referência] ACF)\\n\\n\"\n- Ambos da Almeida Corrigida Fiel (ACF) - Português Brasil\n- Devem se complementar e aprofundar o conceito\n- NUNCA repetir versículos já usados: {{ $json.analise.versiculos_usados }}\n\n### 4. Reflexão (💬)\n- 3-4 parágrafos bem estruturados\n- Explique como os versículos se complementam\n- Mostre como o conceito se aplica ao \"Expressar Jesus\"\n- Seja prático, contextual e envolvente\n- Conecte com a jornada espiritual em andamento\n- Evite repetir frases ou ideias de devocionais anteriores\n\n### 5. Aplicação Prática (🌱)\n- \"🌱 *Aplicação:*\\n\"\n- Sugestão concreta e prática para o dia\n- Relacionada ao conceito trabalhado\n- Focada em como \"Expressar\" isso na vida\n\n### 6. Oração (🙏)\n- \"🙏 *Oração:*\\n\"\n- Curta, sincera, baseada na reflexão\n- Relacionada ao conceito do dia\n\n### 7. Despedida e Assinatura\n- Despedida calorosa (varie)\n- \"Alex e Daniela Mantovani\" (sem títulos)\n\n## ESTILO E TOM:\n\n- **Tom**: Cativante, afetuoso, inspirador, esperançoso, levemente bem humorado, simples e acolhedor\n- **Linguagem**: Simples, compreensível, envolvente e única\n- **Emojis**: Use apenas os especificados (📅 🌟 📖 💬 🌱 🙏)\n- **Formatação**: \n  - Use *itálico* apenas em títulos de seções e palavras-chave importantes (máx 2-3 por parágrafo)\n  - NUNCA use **negrito**\n  - Quebras de linha: \\n\\n entre seções, \\n em parágrafos longos\n\n## REGRAS CRÍTICAS:\n\n1. **Versículos ÚNICOS**: NUNCA repita versículos já usados\n2. **Progressão Natural**: Avance na jornada, não repita conceitos recentes\n3. **Tema \"Expressar\"**: Trabalhe de forma sutil, não repetitiva\n4. **Continuidade**: Mantenha coerência com a jornada espiritual\n5. **Originalidade**: Cada devocional deve trazer nova revelação\n6. **Versão Bíblica**: Sempre ACF (Almeida Corrigida Fiel)\n7. **Tamanho**: Máximo 4000 caracteres (WhatsApp permite 4096)\n8. **Assinatura**: Apenas \"Alex e Daniela Mantovani\" (sem títulos)\n\n## FORMATO DE SAÍDA (JSON):\n\nRetorne APENAS um objeto JSON válido, SEM markdown code blocks:\n\n{\n  \"text\": \"[texto completo formatado para WhatsApp, SEM saudação personalizada. Comece direto com a data formatada: 📅 ...]\",\n  \"title\": \"[título sem emoji]\",\n  \"date\": \"{{ $now.setZone('America/Sao_Paulo').toFormat('yyyy-MM-dd') }}\",\n  \"versiculo_principal\": {\n    \"texto\": \"[texto completo do versículo]\",\n    \"referencia\": \"[referência bíblica] ACF\"\n  },\n  \"versiculo_apoio\": {\n    \"texto\": \"[texto completo do versículo]\",\n    \"referencia\": \"[referência bíblica] ACF\"\n  },\n  \"metadata\": {\n    \"autor\": \"Alex e Daniela Mantovani\",\n    \"tema\": \"[tema/conceito trabalhado]\",\n    \"conceito_central\": \"[conceito específico do dia]\",\n    \"palavras_chave\": [\"palavra1\", \"palavra2\", \"palavra3\"],\n    \"relacionado_expressar\": \"[como se relaciona com Expressar]\"\n  }\n}\n\nIMPORTANTE: Retorne APENAS o JSON, sem markdown code blocks (```json), sem texto adicional antes ou depois.\n```\n\n## 🔧 Configuração no n8n\n\n**Nó: OpenAI / LangChain**\n\n- **Model**: `gpt-4` ou `gpt-3.5-turbo`\n- **Temperature**: `0.8`\n- **Max Tokens**: `2000`\n\n**Nota sobre variáveis:**\n- Se usar análise intermediária: `$('Analisar Histórico').item.json`\n- Se pular análise: `$('Buscar Contexto').item.json`\n\n---\n\n**Use este prompt no nó de geração!** ✍️",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.8,
+      "position": [
+        1056,
+        -128
+      ],
+      "id": "15fde618-a107-42a0-98de-f855a49bb3b5",
+      "name": "Gerar Devocional"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $input.item.json.output;\n\n// Buscar o JSON dentro da string (procura por { ... })\nconst jsonMatch = output.match(/\\{[\\s\\S]*\\}/);\n\nif (!jsonMatch) {\n  throw new Error('JSON não encontrado na string');\n}\n\n// Parse do JSON encontrado\nconst devocional = JSON.parse(jsonMatch[0]);\n\nreturn devocional;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        -128
+      ],
+      "id": "e7661801-c469-4b41-9190-051b6094cdc3",
+      "name": "Extrair JSON"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://imobmiq-devocional.90qhxz.easypanel.host/api/devocional/webhook",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Webhook-Secret",
+              "value": "Fs142779"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1616,
+        -128
+      ],
+      "id": "73db4ac8-69e6-42a1-af30-4a10498cecef",
+      "name": "Enviar Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrair JSON do output da IA\nlet output = $input.item.json;\n\n// Se tiver estrutura \"output\" ou \"output parser\"\nif (output.output) {\n  output = output.output;\n}\n\n// Se for string, tentar fazer parse\nif (typeof output === 'string') {\n  // Remover prefixos comuns\n  let jsonString = output\n    .replace(/^output\\s*:\\s*/i, '')\n    .replace(/^json\\n?/i, '')\n    .trim();\n  \n  // Remover markdown code blocks se existirem\n  jsonString = jsonString\n    .replace(/^```json\\n?/gi, '')\n    .replace(/^```\\n?/g, '')\n    .replace(/```\\n?$/g, '')\n    .trim();\n  \n  // Buscar JSON dentro da string (procura por { ... })\n  const jsonMatch = jsonString.match(/\\{[\\s\\S]*\\}/);\n  \n  if (jsonMatch) {\n    try {\n      output = JSON.parse(jsonMatch[0]);\n    } catch (e) {\n      throw new Error(`Erro ao fazer parse do JSON: ${e.message}`);\n    }\n  } else {\n    throw new Error('JSON não encontrado na string');\n  }\n}\n\n// Verificar se tem a estrutura esperada\nif (!output.text && !output.title) {\n  // Tentar encontrar em sub-objetos\n  if (output.data) {\n    output = output.data;\n  } else if (output.result) {\n    output = output.result;\n  } else if (output.content) {\n    output = output.content;\n  }\n}\n\n// Retornar o objeto limpo\nreturn {\n  json: output\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        -128
+      ],
+      "id": "38f50475-2542-42dc-ad21-71dbfadfcc94",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Busca Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data": {
+      "ai_tool": [
+        [
+          {
+            "node": "Gerar Devocional",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gerar Devocional",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busca Contexto": {
+      "main": [
+        [
+          {
+            "node": "Analisar Histórico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Analista": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analisar Histórico",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analisar Histórico": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Devocional": {
+      "main": [
+        [
+          {
+            "node": "Extrair JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair JSON": {
+      "main": [
+        [
+          {
+            "node": "Enviar Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Gerar Devocional",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ad326b58-7e45-4427-bf98-a3be62379ec0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f8cd840289dc44c3d827f2addf0c554765cb2bcf76dab1c5879f9cbf18361b8a"
+  },
+  "id": "jbFrpIKOYnmqH5X6",
+  "tags": []
+}
