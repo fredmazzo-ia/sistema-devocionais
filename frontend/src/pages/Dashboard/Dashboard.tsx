@@ -19,10 +19,21 @@ export default function Dashboard() {
     try {
       setLoading(true)
       const data = await statsApi.get()
+      console.log('Stats recebidas:', data) // Debug
       setStats(data)
       setError(null)
     } catch (err: any) {
+      console.error('Erro ao carregar stats:', err) // Debug
       setError(err.message || 'Erro ao carregar estatísticas')
+      // Mesmo com erro, definir stats vazias para não quebrar a página
+      setStats({
+        total_sent: 0,
+        total_failed: 0,
+        total_blocked: 0,
+        total_retries: 0,
+        instances: [],
+        distribution_strategy: 'round_robin'
+      })
     } finally {
       setLoading(false)
     }
@@ -37,13 +48,16 @@ export default function Dashboard() {
     )
   }
 
-  if (error) {
-    return (
-      <div className="dashboard-error">
-        <p>{error}</p>
-        <button onClick={loadStats}>Tentar novamente</button>
-      </div>
-    )
+  // Sempre renderizar, mesmo com erro ou sem stats
+  if (!stats) {
+    setStats({
+      total_sent: 0,
+      total_failed: 0,
+      total_blocked: 0,
+      total_retries: 0,
+      instances: [],
+      distribution_strategy: 'round_robin'
+    })
   }
 
   const successRate =

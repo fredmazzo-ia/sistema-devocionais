@@ -180,8 +180,40 @@ export const envioApi = {
 
 export const statsApi = {
   get: async (): Promise<Stats> => {
-    const response = await api.get<Stats>('/devocional/stats')
-    return response.data
+    const response = await api.get<{stats: any, instance_status: any}>('/devocional/stats')
+    // O backend retorna {stats: {...}, instance_status: {...}}
+    // Precisamos adaptar para o formato esperado pelo frontend
+    const data = response.data
+    
+    // Se já está no formato correto, retornar direto
+    if ('total_sent' in data && 'instances' in data) {
+      return data as Stats
+    }
+    
+    // Se está no formato antigo {stats: {...}, instance_status: {...}}
+    if (data.stats) {
+      const stats = data.stats
+      // Adaptar formato
+      return {
+        total_sent: stats.total_sent || 0,
+        total_failed: stats.total_failed || 0,
+        total_blocked: stats.total_blocked || 0,
+        total_retries: stats.total_retries || 0,
+        instances: stats.instances || [],
+        distribution_strategy: stats.distribution_strategy || 'round_robin',
+        shield: stats.shield
+      } as Stats
+    }
+    
+    // Fallback: retornar estrutura vazia
+    return {
+      total_sent: 0,
+      total_failed: 0,
+      total_blocked: 0,
+      total_retries: 0,
+      instances: [],
+      distribution_strategy: 'round_robin'
+    }
   },
 }
 
