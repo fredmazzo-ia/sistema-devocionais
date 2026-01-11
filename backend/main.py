@@ -63,6 +63,7 @@ app.include_router(devocional_context.router, prefix="/api", tags=["Devocional C
 app.include_router(devocional_test.router, prefix="/api", tags=["Devocional Test"])
 
 # Configurar arquivos estáticos do frontend (se buildado)
+# Deve ser chamado ANTES de definir rotas que podem conflitar
 setup_static_files(app)
 
 
@@ -73,6 +74,21 @@ async def api_status():
         "message": "Sistema de Envio de Devocionais",
         "status": "online",
         "version": "1.0.0"
+    }
+
+
+# Endpoint raiz - só será usado se frontend não estiver buildado
+@app.get("/", include_in_schema=False)
+async def root():
+    """Endpoint raiz - retorna frontend se buildado, senão retorna status"""
+    from app.static import FRONTEND_BUILD_PATH
+    if FRONTEND_BUILD_PATH:
+        # Frontend está buildado, será servido pela rota catch-all
+        return {"message": "Frontend disponível", "status": "online"}
+    return {
+        "message": "Sistema de Envio de Devocionais",
+        "status": "online",
+        "note": "Frontend não está buildado. Execute 'npm run build' na pasta frontend"
     }
 
 
