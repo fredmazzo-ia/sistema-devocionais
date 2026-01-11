@@ -192,6 +192,56 @@ export const envioApi = {
 // ESTATÍSTICAS
 // ============================================
 
+// ============================================
+// CONFIGURAÇÕES
+// ============================================
+
+export const configApi = {
+  get: async () => {
+    const response = await api.get('/config/')
+    return response.data
+  },
+  updateShield: async (data: any) => {
+    const response = await api.put('/config/shield', data)
+    return response.data
+  },
+  updateRateLimit: async (data: any) => {
+    const response = await api.put('/config/rate-limit', data)
+    return response.data
+  },
+  updateSchedule: async (data: { send_time: string }) => {
+    const response = await api.put('/config/schedule', data)
+    return response.data
+  },
+}
+
+// ============================================
+// INSTÂNCIAS
+// ============================================
+
+export const instancesApi = {
+  list: async () => {
+    const response = await api.get('/instances/')
+    return response.data
+  },
+  generateQR: async (instanceName: string) => {
+    const response = await api.post(`/instances/${instanceName}/qr`)
+    return response.data
+  },
+  connect: async (instanceName: string) => {
+    const response = await api.post(`/instances/${instanceName}/connect`)
+    return response.data
+  },
+  refresh: async (instanceName: string) => {
+    const response = await api.post(`/instances/${instanceName}/refresh`)
+    return response.data
+  },
+}
+
+// ============================================
+// ESTATÍSTICAS
+// ============================================
+
 export const statsApi = {
   get: async (): Promise<Stats> => {
     const defaultStats: Stats = {

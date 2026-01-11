@@ -9,6 +9,7 @@ import Contatos from './pages/Contatos/Contatos'
 import Devocionais from './pages/Devocionais/Devocionais'
 import Envios from './pages/Envios/Envios'
 import Configuracoes from './pages/Configuracoes/Configuracoes'
+import Instancias from './pages/Instancias/Instancias'
 import './App.css'
 
 function App() {
@@ -68,6 +69,16 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Configuracoes />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/instancias"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Instancias />
               </Layout>
             </ProtectedRoute>
           }

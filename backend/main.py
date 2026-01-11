@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 
 from app.database import init_db
-from app.routers import notifications, devocional, auth
+from app.routers import notifications, devocional, auth, config, instances
 from app.routers import devocional_context, devocional_test
 from app.routers.notifications import router as notifications_router
 from app.devocional_scheduler import start_scheduler as start_devocional_scheduler, stop_scheduler as stop_devocional_scheduler
@@ -69,6 +69,8 @@ app.include_router(notifications_router, prefix="/api", tags=["Notificações n8
 app.include_router(devocional.router, prefix="/api", tags=["Devocional"])
 app.include_router(devocional_context.router, prefix="/api", tags=["Devocional Context"])
 app.include_router(devocional_test.router, prefix="/api", tags=["Devocional Test"])
+app.include_router(config.router, prefix="/api", tags=["Configurações"])
+app.include_router(instances.router, prefix="/api", tags=["Instâncias"])
 
 # Registrar rota catch-all do frontend DEPOIS de todas as rotas da API
 if FRONTEND_BUILD_PATH:
