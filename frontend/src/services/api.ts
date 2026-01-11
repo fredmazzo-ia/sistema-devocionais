@@ -197,12 +197,12 @@ export const statsApi = {
       // Verificar se já está no formato correto
       if (data && 'total_sent' in data && 'instances' in data) {
         return {
-          total_sent: data.total_sent ?? 0,
-          total_failed: data.total_failed ?? 0,
-          total_blocked: data.total_blocked ?? 0,
-          total_retries: data.total_retries ?? 0,
-          instances: data.instances ?? [],
-          distribution_strategy: data.distribution_strategy ?? 'round_robin',
+          total_sent: (data.total_sent ?? 0) as number,
+          total_failed: (data.total_failed ?? 0) as number,
+          total_blocked: (data.total_blocked ?? 0) as number,
+          total_retries: (data.total_retries ?? 0) as number,
+          instances: (data.instances ?? []) as any[],
+          distribution_strategy: (data.distribution_strategy ?? 'round_robin') as string,
           shield: data.shield
         }
       }
@@ -210,12 +210,12 @@ export const statsApi = {
       // Se retornou objeto com 'instances' dentro
       if (data && data.instances && Array.isArray(data.instances)) {
         return {
-          total_sent: data.total_sent ?? 0,
-          total_failed: data.total_failed ?? 0,
-          total_blocked: data.total_blocked ?? 0,
-          total_retries: data.total_retries ?? 0,
-          instances: data.instances,
-          distribution_strategy: data.distribution_strategy ?? 'round_robin',
+          total_sent: (data.total_sent ?? 0) as number,
+          total_failed: (data.total_failed ?? 0) as number,
+          total_blocked: (data.total_blocked ?? 0) as number,
+          total_retries: (data.total_retries ?? 0) as number,
+          instances: data.instances as any[],
+          distribution_strategy: (data.distribution_strategy ?? 'round_robin') as string,
           shield: data.shield
         }
       }
@@ -225,32 +225,32 @@ export const statsApi = {
     
     // Fallback para endpoint antigo
     try {
-      const response = await api.get<{stats: any, instance_status: any}>('/devocional/stats')
-      const data = response.data
+      const response = await api.get<any>('/devocional/stats')
+      const data: any = response.data
       
       // Se já está no formato correto, retornar direto
-      if ('total_sent' in data && 'instances' in data) {
+      if (data && 'total_sent' in data && 'instances' in data) {
         return {
-          total_sent: data.total_sent ?? 0,
-          total_failed: data.total_failed ?? 0,
-          total_blocked: data.total_blocked ?? 0,
-          total_retries: data.total_retries ?? 0,
-          instances: data.instances ?? [],
-          distribution_strategy: data.distribution_strategy ?? 'round_robin',
+          total_sent: (data.total_sent ?? 0) as number,
+          total_failed: (data.total_failed ?? 0) as number,
+          total_blocked: (data.total_blocked ?? 0) as number,
+          total_retries: (data.total_retries ?? 0) as number,
+          instances: (data.instances ?? []) as any[],
+          distribution_strategy: (data.distribution_strategy ?? 'round_robin') as string,
           shield: data.shield
         }
       }
       
       // Se está no formato antigo {stats: {...}, instance_status: {...}}
-      if (data.stats) {
-        const stats = data.stats
+      if (data && data.stats) {
+        const stats: any = data.stats
         return {
-          total_sent: stats.total_sent ?? 0,
-          total_failed: stats.total_failed ?? 0,
-          total_blocked: stats.total_blocked ?? 0,
-          total_retries: stats.total_retries ?? 0,
-          instances: stats.instances ?? [],
-          distribution_strategy: stats.distribution_strategy ?? 'round_robin',
+          total_sent: (stats.total_sent ?? 0) as number,
+          total_failed: (stats.total_failed ?? 0) as number,
+          total_blocked: (stats.total_blocked ?? 0) as number,
+          total_retries: (stats.total_retries ?? 0) as number,
+          instances: (stats.instances ?? []) as any[],
+          distribution_strategy: (stats.distribution_strategy ?? 'round_robin') as string,
           shield: stats.shield
         }
       }
