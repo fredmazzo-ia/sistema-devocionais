@@ -61,6 +61,16 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/configuracoes"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Configuracoes />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
