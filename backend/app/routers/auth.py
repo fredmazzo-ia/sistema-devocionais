@@ -141,6 +141,72 @@ async def get_current_user_info(
     }
 
 
+@router.post("/setup-initial-admin")
+async def setup_initial_admin(
+    request: CreateUserRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Endpoint público para criar usuário admin inicial (apenas se não existir admin)
+    ⚠️ Este endpoint só funciona se não houver nenhum admin no sistema
+    """
+    # Verificar se já existe algum admin
+    existing_admin = db.query(User).filter(User.is_admin == True).first()
+    if existing_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Já existe um administrador no sistema. Use /api/auth/create-user após fazer login."
+        )
+    
+    # Verificar se email já existe
+    existing_user = db.query(User).filter(User.email == request.email).first()
+    if existing_user:
+        # Se existe mas não é admin, corrigir hash e tornar admin
+        if not existing_user.is_admin:
+            existing_user.hashed_password = get_password_hash(request.password)
+            existing_user.is_admin = True
+            existing_user.is_active = True
+            db.commit()
+            db.refresh(existing_user)
+            logger.info(f"Usuário {existing_user.email} promovido a admin e hash corrigido")
+            return {
+                "id": existing_user.id,
+                "email": existing_user.email,
+                "name": existing_user.name or "Administrador",
+                "is_admin": True,
+                "message": "Usuário existente promovido a administrador e senha atualizada"
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email já cadastrado como administrador"
+            )
+    
+    # Criar novo usuário admin
+    hashed_password = get_password_hash(request.password)
+    new_user = User(
+        email=request.email,
+        name=request.name or "Administrador",
+        hashed_password=hashed_password,
+        is_admin=True,
+        is_active=True
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    logger.info(f"Usuário admin inicial criado: {new_user.email}")
+    
+    return {
+        "id": new_user.id,
+        "email": new_user.email,
+        "name": new_user.name,
+        "is_admin": True,
+        "message": "Usuário administrador criado com sucesso! Agora você pode fazer login."
+    }
+
+
 @router.post("/create-user")
 async def create_user(
     request: CreateUserRequest,
@@ -148,7 +214,7 @@ async def create_user(
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    Cria novo usuário (apenas admin)
+    Cria novo usuário (apenas admin autenticado)
     """
     if not current_user.is_admin:
         raise HTTPException(

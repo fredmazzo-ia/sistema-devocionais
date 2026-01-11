@@ -494,6 +494,54 @@
 			]
 		},
 		{
+			"name": "Autenticação",
+			"item": [
+				{
+					"name": "Setup Inicial Admin (Público)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"fredmazzo@gmail.com\",\n  \"password\": \"admin123\",\n  \"name\": \"Administrador\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/setup-initial-admin",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "setup-initial-admin"]
+						},
+						"description": "⚠️ Endpoint público para criar primeiro admin. Só funciona se não houver nenhum admin no sistema."
+					}
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"fredmazzo@gmail.com\",\n  \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login"]
+						}
+					}
+				}
+			]
+		},
+		{
 			"name": "Health Check",
 			"item": [
 				{

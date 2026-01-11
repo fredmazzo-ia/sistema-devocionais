@@ -1,27 +1,74 @@
 # 👤 Como Criar Usuário Admin - Passo a Passo
 
-## 🚀 Método Rápido (Recomendado)
+## 🚀 Método Mais Simples (SEM TERMINAL!)
 
-### 1. **Via EasyPanel (Terminal)**
+### **Via HTTP (Postman, Insomnia ou Navegador)**
 
-1. Acesse o terminal do aplicativo no EasyPanel
-2. Execute:
+Após o deploy no EasyPanel, use este endpoint:
+
+**URL:** `https://imobmiq-devocional.90qhxz.easypanel.host/api/auth/setup-initial-admin`
+
+**Método:** `POST`
+
+**Body (JSON):**
+```json
+{
+  "email": "fredmazzo@gmail.com",
+  "password": "admin123",
+  "name": "Administrador"
+}
+```
+
+**⚠️ IMPORTANTE:** Este endpoint só funciona se não houver nenhum admin no sistema!
+
+---
+
+## 📋 Como Usar
+
+### **Opção 1: Postman/Insomnia (Recomendado)**
+
+1. Abra Postman ou Insomnia
+2. Crie nova requisição POST
+3. URL: `https://imobmiq-devocional.90qhxz.easypanel.host/api/auth/setup-initial-admin`
+4. Headers: `Content-Type: application/json`
+5. Body (raw JSON):
+   ```json
+   {
+     "email": "fredmazzo@gmail.com",
+     "password": "admin123",
+     "name": "Administrador"
+   }
+   ```
+6. Envie a requisição
+
+### **Opção 2: JavaScript no Navegador**
+
+Abra o console do navegador (F12) e execute:
+
+```javascript
+fetch('https://imobmiq-devocional.90qhxz.easypanel.host/api/auth/setup-initial-admin', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    email: 'fredmazzo@gmail.com',
+    password: 'admin123',
+    name: 'Administrador'
+  })
+})
+.then(res => res.json())
+.then(data => console.log('✅ Sucesso:', data))
+.catch(err => console.error('❌ Erro:', err));
+```
+
+---
+
+## 🔧 Método Alternativo (Terminal - Apenas se necessário)
+
+Se o endpoint HTTP não funcionar, use o terminal do EasyPanel:
 
 ```bash
 cd /app
 python database/create_admin_user_auto.py
-```
-
-**Credenciais padrão criadas:**
-- Email: `fredmazzo@gmail.com`
-- Senha: `admin123`
-- Nome: `Administrador`
-
-### 2. **Com Credenciais Personalizadas**
-
-```bash
-cd /app
-python database/create_admin_user_auto.py --email seu@email.com --password SuaSenha123 --name "Seu Nome"
 ```
 
 ---
