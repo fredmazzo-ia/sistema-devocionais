@@ -13,7 +13,7 @@ python database/create_admin_user_auto.py
 ```
 
 **Credenciais padrão criadas:**
-- Email: `admin@devocional.com`
+- Email: `fredmazzo@gmail.com`
 - Senha: `admin123`
 - Nome: `Administrador`
 
@@ -51,7 +51,7 @@ Se preferir criar diretamente no banco:
 
 INSERT INTO users (email, name, hashed_password, is_admin, is_active)
 VALUES (
-  'admin@devocional.com',
+  'fredmazzo@gmail.com',
   'Administrador',
   '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYqJ5q5q5q5q',  -- admin123
   true,
@@ -69,7 +69,7 @@ Teste o login via API:
 curl -X POST https://imobmiq-devocional.90qhxz.easypanel.host/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@devocional.com",
+    "email": "fredmazzo@gmail.com",
     "password": "admin123"
   }'
 ```

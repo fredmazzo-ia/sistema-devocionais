@@ -16,7 +16,7 @@ def fix_or_create_admin():
     """Corrige ou cria usuário admin"""
     db = SessionLocal()
     try:
-        email = "admin@devocional.com"
+        email = "fredmazzo@gmail.com"
         password = "admin123"  # Mude isso para uma senha segura!
         
         # Verificar se usuário existe

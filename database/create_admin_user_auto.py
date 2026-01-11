@@ -17,7 +17,7 @@ load_dotenv()
 
 
 def create_admin_user_auto(
-    email: str = "admin@devocional.com",
+    email: str = "fredmazzo@gmail.com",
     password: str = "admin123",
     name: str = "Administrador"
 ):

@@ -30,7 +30,7 @@ O script irá:
 3. ✅ Atualizar ou criar o usuário
 
 **Credenciais padrão:**
-- Email: `admin@devocional.com`
+- Email: `fredmazzo@gmail.com`
 - Senha: `admin123`
 
 ⚠️ **IMPORTANTE:** Altere a senha após o primeiro login!
@@ -46,7 +46,7 @@ O script irá:
 
 2. **Delete o usuário atual (se existir):**
    ```sql
-   DELETE FROM users WHERE email = 'admin@devocional.com';
+   DELETE FROM users WHERE email = 'fredmazzo@gmail.com';
    ```
 
 3. **Execute o script Python:**
@@ -64,7 +64,7 @@ Se o endpoint `/api/auth/create-user` estiver disponível:
 curl -X POST https://imobmiq-devocional.90qhxz.easypanel.host/api/auth/create-user \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@devocional.com",
+    "email": "fredmazzo@gmail.com",
     "password": "admin123",
     "is_admin": true
   }'
@@ -89,7 +89,7 @@ print(hash)
 ## ✅ Verificação
 
 Após corrigir, teste o login:
-- Email: `admin@devocional.com`
+- Email: `fredmazzo@gmail.com`
 - Senha: `admin123`
 
 ---
