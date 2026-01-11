@@ -166,3 +166,11 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# Função para inicializar banco de dados (criar tabelas)
+def init_db():
+    """
+    Inicializa o banco de dados criando todas as tabelas
+    """
+    Base.metadata.create_all(bind=engine)
