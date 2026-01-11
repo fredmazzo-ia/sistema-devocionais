@@ -26,11 +26,23 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifica se a senha está correta"""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        # Truncar senha se necessário (bcrypt tem limite de 72 bytes)
+        password_bytes = plain_password.encode('utf-8')
+        if len(password_bytes) > 72:
+            plain_password = password_bytes[:72].decode('utf-8', errors='ignore')
+        return pwd_context.verify(plain_password, hashed_password)
+    except (ValueError, TypeError) as e:
+        # Se o hash estiver corrompido ou inválido, retornar False
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Gera hash da senha"""
+    # Truncar senha se necessário (bcrypt tem limite de 72 bytes)
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password = password_bytes[:72].decode('utf-8', errors='ignore')
     return pwd_context.hash(password)
 
 

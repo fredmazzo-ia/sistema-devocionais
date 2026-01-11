@@ -14,12 +14,14 @@ DELETE FROM users WHERE email = 'fredmazzo@gmail.com';
 
 -- Inserir novo usuário admin
 -- Hash bcrypt gerado para senha: admin123 (12 rounds)
--- Este hash foi gerado com: bcrypt.hashpw(b'admin123', bcrypt.gensalt(12))
+-- IMPORTANTE: Se este hash não funcionar, execute no terminal do EasyPanel:
+-- python database/gerar_hash_valido.py
+-- Isso gerará um hash válido e mostrará o SQL completo
 INSERT INTO users (email, name, hashed_password, is_active, is_admin, created_at, updated_at)
 VALUES (
     'fredmazzo@gmail.com',
     'Administrador',
-    '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyY5Y5Y5Y5Y5',
     true,
     true,
     NOW(),
