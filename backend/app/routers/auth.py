@@ -151,6 +151,14 @@ async def setup_initial_admin(
     ⚠️ SEMPRE funciona - cria novo ou atualiza existente
     """
     try:
+        # Validar comprimento da senha (bcrypt tem limite de 72 bytes)
+        password_bytes = request.password.encode('utf-8')
+        if len(password_bytes) > 72:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Senha muito longa. Máximo de 72 bytes permitido."
+            )
+        
         # Verificar se email já existe
         existing_user = db.query(User).filter(User.email == request.email).first()
         
