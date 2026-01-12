@@ -6,7 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 from app.config import settings
-from app.timezone_utils import now_brazil
+from app.timezone_utils import now_brazil_naive as now_brazil
 
 # Criar engine
 engine = create_engine(

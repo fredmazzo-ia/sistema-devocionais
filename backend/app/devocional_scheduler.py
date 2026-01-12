@@ -10,7 +10,8 @@ from zoneinfo import ZoneInfo
 from typing import Optional
 from app.config import settings
 from app.devocional_service_v2 import DevocionalServiceV2
-from app.database import SessionLocal, DevocionalContato, Devocional, DevocionalEnvio
+from app.database import SessionLocal, DevocionalContato, Devocional, DevocionalEnvio, AgendamentoEnvio
+from app.timezone_utils import now_brazil, today_brazil_naive
 from app.devocional_service_v2 import MessageResult
 from app.devocional_integration import devocional_integration
 
@@ -41,6 +42,8 @@ def send_daily_devocional():
     """
     Função que envia o devocional diário para todos os contatos ativos
     """
+    from app.timezone_utils import now_brazil_naive
+    
     logger.info("Iniciando envio automático de devocional diário...")
     
     try:
@@ -73,6 +76,23 @@ def send_daily_devocional():
             
             logger.info(f"Enviando devocional para {len(contacts_list)} contatos...")
             
+            # Criar registros de agendamento antes de enviar
+            scheduled_time = now_brazil_naive()
+            for contact in contacts:
+                agendamento = AgendamentoEnvio(
+                    devocional_id=devocional_id,
+                    contato_id=contact.id,
+                    scheduled_for=scheduled_time,
+                    recipient_phone=contact.phone,
+                    recipient_name=contact.name,
+                    message_text=message,
+                    status="pending",
+                    agendamento_type="automatico"
+                )
+                db.add(agendamento)
+            
+            db.flush()  # Para obter IDs dos agendamentos
+            
             # Enviar mensagens
             results = devocional_service.send_bulk_devocionais(
                 contacts=contacts_list,
@@ -86,18 +106,32 @@ def send_daily_devocional():
             
             logger.info(f"Envio automático concluído: {sent} enviadas, {failed} falharam")
             
+            # Atualizar agendamentos e registrar envios
+            agendamentos = db.query(AgendamentoEnvio).filter(
+                AgendamentoEnvio.scheduled_for == scheduled_time,
+                AgendamentoEnvio.agendamento_type == "automatico"
+            ).all()
+            
             # Registrar envios no banco e atualizar contatos
             for i, result in enumerate(results):
                 if i < len(contacts):
                     contact = contacts[i]
                     
+                    # Atualizar agendamento correspondente
+                    if i < len(agendamentos):
+                        agendamento = agendamentos[i]
+                        agendamento.sent_at = result.timestamp.replace(tzinfo=None) if result.timestamp else now_brazil_naive()
+                        agendamento.status = "sent" if result.success else "failed"
+                        agendamento.error_message = result.error
+                        agendamento.instance_name = result.instance_name
+                    
                     # Registrar envio no banco
                     envio = DevocionalEnvio(
-                        devocional_id=devocional_id,  # Adicionar ID do devocional
+                        devocional_id=devocional_id,
                         recipient_phone=contact.phone,
                         recipient_name=contact.name,
                         message_text=message,
-                        sent_at=result.timestamp,
+                        sent_at=result.timestamp.replace(tzinfo=None) if result.timestamp else now_brazil_naive(),
                         status=result.status.value,
                         message_id=result.message_id,
                         error_message=result.error,
@@ -108,10 +142,11 @@ def send_daily_devocional():
                     
                     # Atualizar contato
                     if result.success:
-                        contact.last_sent = result.timestamp
+                        contact.last_sent = result.timestamp.replace(tzinfo=None) if result.timestamp else now_brazil_naive()
                         contact.total_sent += 1
             
             db.commit()
+            logger.info(f"✅ Agendamentos e envios registrados no banco de dados")
         
         finally:
             db.close()
