@@ -16,24 +16,36 @@ export default function Contatos() {
   useEffect(() => {
     loadContatos()
     
-    // Atualizar em tempo real a cada 5 segundos (mais frequente)
+    // Atualizar em tempo real a cada 10 segundos (sem mostrar loading para não piscar)
     const interval = setInterval(() => {
-      loadContatos()
-    }, 5000)
+      loadContatosSilently()
+    }, 10000)
     
     return () => clearInterval(interval)
   }, [])
 
-  const loadContatos = async () => {
+  const loadContatos = async (showLoading = true) => {
     try {
-      setLoading(true)
+      if (showLoading) setLoading(true)
       const data = await contatoApi.list(0, 1000, false) // false = buscar todos (ativos e inativos)
       setContatos(data)
       setError(null)
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar contatos')
     } finally {
-      setLoading(false)
+      if (showLoading) setLoading(false)
+    }
+  }
+
+  const loadContatosSilently = async () => {
+    // Atualização silenciosa sem mostrar loading (não pisca a tela)
+    try {
+      const data = await contatoApi.list(0, 1000, false)
+      setContatos(data)
+      setError(null)
+    } catch (err: any) {
+      // Silencioso - não mostra erro em atualizações automáticas
+      console.error('Erro ao atualizar contatos:', err)
     }
   }
 

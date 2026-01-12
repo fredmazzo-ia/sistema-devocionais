@@ -14,24 +14,36 @@ export default function Envios() {
   useEffect(() => {
     loadEnvios()
     
-    // Atualizar em tempo real a cada 5 segundos
+    // Atualizar em tempo real a cada 10 segundos (sem mostrar loading para não piscar)
     const interval = setInterval(() => {
-      loadEnvios()
-    }, 5000)
+      loadEnviosSilently()
+    }, 10000)
     
     return () => clearInterval(interval)
   }, [])
 
-  const loadEnvios = async () => {
+  const loadEnvios = async (showLoading = true) => {
     try {
-      setLoading(true)
+      if (showLoading) setLoading(true)
       const data = await envioApi.list(0, 200)
       setEnvios(data)
       setError(null)
     } catch (err: any) {
       setError(err.message || 'Erro ao carregar envios')
     } finally {
-      setLoading(false)
+      if (showLoading) setLoading(false)
+    }
+  }
+
+  const loadEnviosSilently = async () => {
+    // Atualização silenciosa sem mostrar loading (não pisca a tela)
+    try {
+      const data = await envioApi.list(0, 200)
+      setEnvios(data)
+      setError(null)
+    } catch (err: any) {
+      // Silencioso - não mostra erro em atualizações automáticas
+      console.error('Erro ao atualizar envios:', err)
     }
   }
 

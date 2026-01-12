@@ -331,8 +331,10 @@ async def list_contatos(
         # Query simples - SEM filtros complexos
         query = db.query(DevocionalContato)
         
+        # CORREÇÃO: active_only=False deve retornar inativos, active_only=True ativos, None = todos
         if active_only is not None:
             query = query.filter(DevocionalContato.active == active_only)
+        # Se active_only é None, não filtrar (retornar todos)
         
         # DEBUG: Contar total antes de filtrar
         try:
