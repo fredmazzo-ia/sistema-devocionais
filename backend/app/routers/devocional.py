@@ -328,13 +328,14 @@ async def list_contatos(
         # DEBUG: Verificar conexão e tabela
         logger.info(f"🔍 Buscando contatos: active_only={active_only}, skip={skip}, limit={limit}")
         
-        # Query simples - SEM filtros complexos
+        # Query simples - CORREÇÃO: active_only=False significa TODOS (não filtrar)
         query = db.query(DevocionalContato)
         
-        # CORREÇÃO: active_only=False deve retornar inativos, active_only=True ativos, None = todos
-        if active_only is not None:
-            query = query.filter(DevocionalContato.active == active_only)
-        # Se active_only é None, não filtrar (retornar todos)
+        # CORREÇÃO: Se active_only é False ou None, retornar TODOS
+        # Se active_only é True, retornar apenas ativos
+        if active_only is True:
+            query = query.filter(DevocionalContato.active == True)
+        # Se active_only é False ou None, não filtrar (retornar todos)
         
         # DEBUG: Contar total antes de filtrar
         try:

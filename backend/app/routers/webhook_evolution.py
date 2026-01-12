@@ -444,8 +444,13 @@ async def process_message_update(
                     update_engagement_from_read(db, phone, True)
         
         if updated:
-            db.commit()
-            logger.info(f"✅ Status atualizado para message_id {message_id}: status={final_status}")
+            try:
+                db.commit()
+                logger.info(f"✅✅ Status COMMITADO no banco para message_id {message_id}: status={final_status}")
+            except Exception as commit_error:
+                logger.error(f"❌ ERRO ao fazer commit: {commit_error}", exc_info=True)
+                db.rollback()
+                raise
             return {
                 "success": True,
                 "message_id": message_id,
@@ -595,8 +600,13 @@ async def process_message_update(
                 update_engagement_from_read(db, phone, True)
         
         if updated:
-            db.commit()
-            logger.info(f"✅ Status atualizado para message_id {message_id}: status={final_status}")
+            try:
+                db.commit()
+                logger.info(f"✅✅ Status COMMITADO no banco para message_id {message_id}: status={final_status}")
+            except Exception as commit_error:
+                logger.error(f"❌ ERRO ao fazer commit: {commit_error}", exc_info=True)
+                db.rollback()
+                raise
             return {
                 "success": True,
                 "message_id": message_id,
