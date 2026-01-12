@@ -116,13 +116,25 @@ async def receive_message_status(
             else:
                 data_dict = data if isinstance(data, dict) else {}
             
-            key_id = data_dict.get("keyId") or data_dict.get("key", {}).get("id") if isinstance(data_dict.get("key"), dict) else data_dict.get("key", {}).get("id") if "key" in data_dict else body.get("id", "")
+            # Extrair key_id de forma segura
+            key_id = ""
+            if "keyId" in data_dict:
+                key_id = str(data_dict.get("keyId", ""))
+            elif "key" in data_dict:
+                key_obj = data_dict.get("key", {})
+                if isinstance(key_obj, dict) and "id" in key_obj:
+                    key_id = str(key_obj.get("id", ""))
+            
             status_received = data_dict.get("status") or ""
             phone = ""
             if "remoteJid" in data_dict:
-                phone = data_dict.get("remoteJid", "").split("@")[0].split(":")[0]
-            elif "key" in data_dict and isinstance(data_dict.get("key"), dict) and "remoteJid" in data_dict.get("key", {}):
-                phone = data_dict.get("key", {}).get("remoteJid", "").split("@")[0].split(":")[0]
+                remote_jid = str(data_dict.get("remoteJid", ""))
+                phone = remote_jid.split("@")[0].split(":")[0]
+            elif "key" in data_dict:
+                key_obj = data_dict.get("key", {})
+                if isinstance(key_obj, dict) and "remoteJid" in key_obj:
+                    remote_jid = str(key_obj.get("remoteJid", ""))
+                    phone = remote_jid.split("@")[0].split(":")[0]
             
             webhook_event = WebhookEvent(
                 event_type=event or "unknown",

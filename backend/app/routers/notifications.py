@@ -108,50 +108,65 @@ async def n8n_webhook(
                 logger.info(f"✅ Preparados {len(contacts)} contatos para envio: {[(c.get('id'), c.get('name')) for c in contacts]}")
             
             # Enviar
+            logger.info(f"🚀 Iniciando envio de devocional para {len(contacts)} contatos")
             devocional_service = get_devocional_service(db)
-            results = devocional_service.send_bulk_devocionais(
-                contacts=contacts,
-                message=message,
-                delay=request.delay
-            )
+            
+            try:
+                results = devocional_service.send_bulk_devocionais(
+                    contacts=contacts,
+                    message=message,
+                    delay=request.delay
+                )
+                logger.info(f"✅ Envio concluído: {len(results)} resultados retornados")
+            except Exception as send_error:
+                logger.error(f"❌ Erro ao enviar devocionais: {send_error}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"Erro ao enviar devocionais: {str(send_error)}")
             
             # Registrar no banco
             sent_count = 0
             failed_count = 0
             from app.timezone_utils import now_brazil_naive
             
-            for i, result in enumerate(results):
-                contact = contacts[i] if i < len(contacts) else {}
-                
-                # Converter timestamp para naive (sem timezone) para PostgreSQL
-                timestamp_naive = result.timestamp.replace(tzinfo=None) if result.timestamp and result.timestamp.tzinfo else (now_brazil_naive() if result.timestamp is None else result.timestamp)
-                
-                envio = DevocionalEnvio(
-                    recipient_phone=contact.get('phone', ''),
-                    recipient_name=contact.get('name'),
-                    message_text=message,
-                    sent_at=timestamp_naive,
-                    status=result.status.value,
-                    message_id=result.message_id,
-                    error_message=result.error,
-                    retry_count=result.retry_count,
-                    instance_name=result.instance_name
-                )
-                db.add(envio)
-                
-                if result.success:
-                    sent_count += 1
-                    db_contact = db.query(DevocionalContato).filter(
-                        DevocionalContato.phone == contact.get('phone')
-                    ).first()
+            try:
+                for i, result in enumerate(results):
+                    contact = contacts[i] if i < len(contacts) else {}
                     
-                    if db_contact:
-                        db_contact.last_sent = timestamp_naive
-                        db_contact.total_sent += 1
-                else:
-                    failed_count += 1
-            
-            db.commit()
+                    # Converter timestamp para naive (sem timezone) para PostgreSQL
+                    timestamp_naive = result.timestamp.replace(tzinfo=None) if result.timestamp and result.timestamp.tzinfo else (now_brazil_naive() if result.timestamp is None else result.timestamp)
+                    
+                    envio = DevocionalEnvio(
+                        recipient_phone=contact.get('phone', ''),
+                        recipient_name=contact.get('name'),
+                        message_text=message,
+                        sent_at=timestamp_naive,
+                        status=result.status.value,
+                        message_id=result.message_id,  # Este é o key.id da Evolution API
+                        error_message=result.error,
+                        retry_count=result.retry_count,
+                        instance_name=result.instance_name
+                    )
+                    db.add(envio)
+                    
+                    if result.success:
+                        sent_count += 1
+                        db_contact = db.query(DevocionalContato).filter(
+                            DevocionalContato.phone == contact.get('phone')
+                        ).first()
+                        
+                        if db_contact:
+                            db_contact.last_sent = timestamp_naive
+                            db_contact.total_sent += 1
+                            logger.debug(f"📝 Registrado envio para {contact.get('phone')}: message_id={result.message_id}, instance={result.instance_name}")
+                    else:
+                        failed_count += 1
+                        logger.warning(f"⚠️ Envio falhou para {contact.get('phone')}: {result.error}")
+                
+                db.commit()
+                logger.info(f"✅ {sent_count} envios registrados no banco, {failed_count} falharam")
+            except Exception as db_error:
+                logger.error(f"❌ Erro ao registrar envios no banco: {db_error}", exc_info=True)
+                db.rollback()
+                raise HTTPException(status_code=500, detail=f"Erro ao registrar envios no banco: {str(db_error)}")
             
             return NotificationResponse(
                 success=sent_count > 0,
