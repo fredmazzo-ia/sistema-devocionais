@@ -160,10 +160,13 @@ export const envioApi = {
       recipient_name: e.recipient_name || null,
       message: e.message || '',
       status: e.status,
+      message_status: e.message_status || 'sent',  // sent, delivered, read
       instance_name: e.instance_name || null,
       error: e.error_message || e.error || null,
       retry_count: e.retry_count || 0,
       sent_at: e.sent_at || null,
+      delivered_at: e.delivered_at || null,
+      read_at: e.read_at || null,
       created_at: e.created_at || e.sent_at || new Date().toISOString(),
     }))
   },
