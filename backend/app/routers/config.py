@@ -48,9 +48,21 @@ class ConfigResponse(BaseModel):
     message: str
 
 
+def _get_send_time_from_db(db: Session) -> str:
+    """Helper para obter horário de envio do banco"""
+    try:
+        config = db.query(SystemConfig).filter(SystemConfig.key == "devocional_send_time").first()
+        if config and config.value:
+            return config.value
+    except Exception as e:
+        logger.warning(f"Erro ao buscar horário do banco: {e}. Usando padrão do .env")
+    return settings.DEVOCIONAL_SEND_TIME
+
+
 @router.get("/")
 async def get_config(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Retorna todas as configurações do sistema"""
     return {
@@ -72,7 +84,7 @@ async def get_config(
             "retry_delay": settings.RETRY_DELAY,
         },
         "schedule": {
-            "send_time": self._get_send_time_from_db(db),
+            "send_time": _get_send_time_from_db(db),
         }
     }
 
