@@ -335,8 +335,20 @@ async def list_contatos(
             query = query.filter(DevocionalContato.active == active_only)
         
         # DEBUG: Contar total antes de filtrar
-        total_count = db.query(DevocionalContato).count()
-        logger.info(f"📊 Total de contatos na tabela: {total_count}")
+        try:
+            total_count = db.query(DevocionalContato).count()
+            logger.info(f"📊 Total de contatos na tabela 'devocional_contatos': {total_count}")
+        except Exception as count_error:
+            logger.error(f"❌ Erro ao contar contatos: {count_error}", exc_info=True)
+            total_count = 0
+        
+        # Tentar query direta também
+        try:
+            from sqlalchemy import text
+            direct_count = db.execute(text("SELECT COUNT(*) FROM devocional_contatos")).scalar()
+            logger.info(f"📊 Contagem direta via SQL: {direct_count}")
+        except Exception as sql_error:
+            logger.error(f"❌ Erro na query SQL direta: {sql_error}", exc_info=True)
         
         contatos = query.order_by(DevocionalContato.name, DevocionalContato.phone).offset(skip).limit(limit).all()
         
@@ -344,10 +356,15 @@ async def list_contatos(
         
         if not contatos:
             # Se não encontrou, tentar sem filtros para debug
-            all_contatos = db.query(DevocionalContato).all()
-            logger.warning(f"⚠️ Nenhum contato encontrado com filtros! Total sem filtros: {len(all_contatos)}")
-            if all_contatos:
-                logger.info(f"📋 Primeiros 3 contatos encontrados: {[(c.id, c.phone, c.name, c.active) for c in all_contatos[:3]]}")
+            try:
+                all_contatos = db.query(DevocionalContato).all()
+                logger.warning(f"⚠️ Nenhum contato encontrado com filtros! Total sem filtros: {len(all_contatos)}")
+                if all_contatos:
+                    logger.info(f"📋 Primeiros 3 contatos encontrados: {[(c.id, c.phone, c.name, c.active) for c in all_contatos[:3]]}")
+                else:
+                    logger.error(f"❌ NENHUM contato encontrado mesmo sem filtros! Verifique a tabela 'devocional_contatos'")
+            except Exception as debug_error:
+                logger.error(f"❌ Erro ao buscar contatos para debug: {debug_error}", exc_info=True)
             return []
         
         from app.database import ContactEngagement
