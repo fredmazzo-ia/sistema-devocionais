@@ -37,9 +37,14 @@ class DevocionalEnvio(Base):
     
     # Status do envio
     status = Column(String(20), default="pending", index=True)  # pending, sent, failed, retrying, blocked
-    message_id = Column(String(100))  # ID da mensagem na Evolution API
+    message_id = Column(String(100), index=True)  # ID da mensagem na Evolution API (usado para rastrear status)
     error_message = Column(Text)  # Mensagem de erro (se houver)
     retry_count = Column(Integer, default=0)  # Número de tentativas
+    
+    # Status detalhado da mensagem (rastreado via webhook da Evolution API)
+    message_status = Column(String(20), default="pending", index=True)  # pending, sent, delivered, read, failed
+    delivered_at = Column(DateTime, nullable=True, index=True)  # Quando foi entregue
+    read_at = Column(DateTime, nullable=True, index=True)  # Quando foi lida/visualizada
     
     # Instância que enviou (para multi-instância)
     instance_name = Column(String(100))  # Nome da instância Evolution API que enviou

@@ -10,7 +10,7 @@ import uvicorn
 from app.database import init_db
 from app.routers import notifications, devocional, auth, config
 from app.routers import instances_v2 as instances
-from app.routers import devocional_context, devocional_test
+from app.routers import devocional_context, devocional_test, webhook_evolution, engagement_stats
 from app.routers.notifications import router as notifications_router
 from app.devocional_scheduler import start_scheduler as start_devocional_scheduler, stop_scheduler as stop_devocional_scheduler
 from app.logging_config import setup_logging
@@ -72,6 +72,8 @@ app.include_router(devocional_context.router, prefix="/api", tags=["Devocional C
 app.include_router(devocional_test.router, prefix="/api", tags=["Devocional Test"])
 app.include_router(config.router, prefix="/api", tags=["Configurações"])
 app.include_router(instances.router, prefix="/api", tags=["Instâncias"])
+app.include_router(webhook_evolution.router, prefix="/api", tags=["Webhook Evolution"])
+app.include_router(engagement_stats.router, prefix="/api", tags=["Engagement Stats"])
 
 # Registrar rota catch-all do frontend DEPOIS de todas as rotas da API
 if FRONTEND_BUILD_PATH:

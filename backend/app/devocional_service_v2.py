@@ -534,7 +534,8 @@ class DevocionalServiceV2:
             logger.info(f"Processando contato {i}/{len(contacts)}: {name or phone}")
             
             # Verificar engajamento (se shield habilitado)
-            if self.shield and not self.shield.should_send_to_contact(phone):
+            # Para devocionais, sempre permitir envio (is_devocional=True)
+            if self.shield and not self.shield.should_send_to_contact(phone, is_devocional=True):
                 logger.info(f"Pulando contato {phone}: score de engajamento muito baixo")
                 results.append(MessageResult(
                     success=False,
@@ -585,9 +586,10 @@ class DevocionalServiceV2:
             results.append(result)
             
             # Atualizar engajamento (assumindo que não houve resposta por enquanto)
+            # Para devocionais, não reduzir score (são mensagens unidirecionais)
             # Em produção, isso seria atualizado quando houver resposta real
             if self.shield:
-                self.shield.update_engagement(phone, responded=False)
+                self.shield.update_engagement(phone, responded=False, is_devocional=True)
                 self.shield.metrics.messages_since_break += 1
             
             # Se enviou com sucesso e é novo contato, enviar vCard

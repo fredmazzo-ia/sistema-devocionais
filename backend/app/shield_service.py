@@ -208,13 +208,21 @@ class ShieldService:
         logger.info(f"Horários ótimos calculados: {optimal_times}")
         return optimal_times
     
-    def update_engagement(self, phone: str, responded: bool = False):
+    def update_engagement(
+        self, 
+        phone: str, 
+        responded: bool = False, 
+        is_devocional: bool = False,
+        was_read: bool = False
+    ):
         """
         Atualiza score de engajamento de um contato
         
         Args:
             phone: Número do telefone
-            responded: Se o contato respondeu
+            responded: Se o contato respondeu (para mensagens interativas)
+            is_devocional: Se é um devocional (mensagem unidirecional)
+            was_read: Se a mensagem foi visualizada/lida (mais importante para devocionais)
         """
         if phone not in self.engagement_data:
             self.engagement_data[phone] = EngagementData(phone=phone)
@@ -224,42 +232,71 @@ class ShieldService:
         from app.timezone_utils import now_brazil
         data.last_sent_date = now_brazil()
         
-        if responded:
-            data.total_responded += 1
-            from app.timezone_utils import now_brazil
-            data.last_response_date = now_brazil()
-            data.consecutive_no_response = 0
-            # Aumentar score
-            data.engagement_score = min(1.0, data.engagement_score + 0.1)
+        # Para devocionais, usar visualização (was_read) como métrica principal
+        if is_devocional:
+            if was_read:
+                # Visualizou = engajamento positivo (aumenta score)
+                data.engagement_score = min(1.0, data.engagement_score + 0.05)
+                data.consecutive_no_response = 0
+                logger.debug(f"Devocional visualizado por {phone}, score aumentado")
+            else:
+                # Não visualizou ainda = manter score (não reduzir imediatamente)
+                # O score só será reduzido se nunca visualizar após vários envios
+                logger.debug(f"Devocional enviado para {phone}, aguardando visualização")
         else:
-            data.consecutive_no_response += 1
-            # Diminuir score gradualmente
-            data.engagement_score = max(0.0, data.engagement_score - 0.05)
+            # Para mensagens interativas, usar resposta
+            if responded:
+                data.total_responded += 1
+                from app.timezone_utils import now_brazil
+                data.last_response_date = now_brazil()
+                data.consecutive_no_response = 0
+                # Aumentar score
+                data.engagement_score = min(1.0, data.engagement_score + 0.1)
+            else:
+                data.consecutive_no_response += 1
+                # Diminuir score gradualmente apenas para mensagens interativas
+                data.engagement_score = max(0.0, data.engagement_score - 0.05)
         
-        # Calcular score baseado em taxa de resposta
+        # Calcular score baseado em taxa de engajamento
+        # Para devocionais: taxa de visualização
+        # Para interativas: taxa de resposta
         if data.total_sent > 0:
-            response_rate = data.total_responded / data.total_sent
+            if is_devocional:
+                # Para devocionais, precisamos rastrear visualizações separadamente
+                # Por enquanto, usar taxa de resposta como proxy
+                engagement_rate = data.total_responded / data.total_sent
+            else:
+                engagement_rate = data.total_responded / data.total_sent
+            
             # Combinar com score atual (média ponderada)
-            data.engagement_score = (data.engagement_score * 0.6) + (response_rate * 0.4)
+            data.engagement_score = (data.engagement_score * 0.6) + (engagement_rate * 0.4)
         
         logger.debug(
             f"Engajamento atualizado para {phone}: "
             f"score={data.engagement_score:.2f}, "
-            f"responded={responded}"
+            f"responded={responded}, "
+            f"was_read={was_read}, "
+            f"is_devocional={is_devocional}"
         )
     
-    def should_send_to_contact(self, phone: str) -> bool:
+    def should_send_to_contact(self, phone: str, is_devocional: bool = False) -> bool:
         """
         Decide se deve enviar para um contato baseado no engajamento
         
         Args:
             phone: Número do telefone
+            is_devocional: Se é um devocional (sempre permite envio, independente do score)
         
         Returns:
             True se deve enviar
         """
         if phone not in self.engagement_data:
             # Novo contato, permitir envio
+            return True
+        
+        # Para devocionais, sempre permitir envio (são mensagens unidirecionais)
+        if is_devocional:
+            logger.debug(f"Devocional: permitindo envio para {phone} (ignorando score de engajamento)")
             return True
         
         data = self.engagement_data[phone]
