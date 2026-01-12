@@ -99,7 +99,7 @@ async def n8n_webhook(
                     )
                 
                 contacts = [
-                    {"phone": c.phone, "name": c.name}
+                    {"id": c.id, "phone": c.phone, "name": c.name}
                     for c in db_contacts
                 ]
             

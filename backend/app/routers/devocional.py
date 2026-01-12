@@ -101,7 +101,7 @@ async def send_devocional(
                 )
             
             contacts = [
-                {"phone": c.phone, "name": c.name}
+                {"id": c.id, "phone": c.phone, "name": c.name}
                 for c in db_contacts
             ]
         

@@ -120,7 +120,7 @@ class InstanceManager:
         
         logger.info(f"InstanceManager inicializado com {len(self.instances)} instâncias")
     
-    def get_available_instance(self, strategy: str = "round_robin") -> Optional[EvolutionInstance]:
+    def get_available_instance(self, strategy: str = "round_robin", contact_id: Optional[int] = None) -> Optional[EvolutionInstance]:
         """
         Retorna uma instância disponível para envio
         
@@ -130,6 +130,8 @@ class InstanceManager:
                 - "least_used": Menos usada
                 - "priority": Por prioridade
                 - "random": Aleatória
+                - "contact_id": Distribuição baseada no ID do contato (usa contact_id)
+            contact_id: ID do contato para distribuição baseada em ID (usado com strategy="contact_id")
         
         Returns:
             EvolutionInstance disponível ou None
