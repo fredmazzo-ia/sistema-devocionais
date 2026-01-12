@@ -307,17 +307,25 @@ async def connect_instance(
             
             # Procurar nossa instância
             for inst_data in instances_data:
-                if (inst_data.get('instanceName') or inst_data.get('name')) == instance_name:
-                    state = inst_data.get('state', 'unknown')
-                    phone = inst_data.get('phoneNumber') or inst_data.get('phone') or inst_data.get('number')
-                    
-                    return {
-                        "instance_name": instance_name,
-                        "state": state,
-                        "phone_number": phone,
-                        "connected": state in ['open', 'connected', 'ready'],
-                        "message": f"Instância {instance_name} está {state}"
-                    }
+                    api_name = inst_data.get('instanceName') or inst_data.get('name')
+                    # Comparação case-insensitive e flexível
+                    if api_name and (api_name.strip().lower() == instance_name.strip().lower() or
+                                     api_name.strip().lower().startswith(instance_name.strip().lower()) or
+                                     instance_name.strip().lower().startswith(api_name.strip().lower())):
+                        state = inst_data.get('state', 'unknown')
+                        phone = inst_data.get('phoneNumber') or inst_data.get('phone') or inst_data.get('number')
+                        
+                        # "open" é o estado padrão quando conectado
+                        is_connected = state.lower() in ['open', 'connected', 'ready']
+                        
+                        return {
+                            "instance_name": instance_name,
+                            "api_instance_name": api_name,  # Nome real na API
+                            "state": state,
+                            "phone_number": phone,
+                            "connected": is_connected,
+                            "message": f"Instância {instance_name} (API: {api_name}) está {state}"
+                        }
             
             return {
                 "instance_name": instance_name,

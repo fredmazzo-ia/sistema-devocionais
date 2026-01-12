@@ -222,9 +222,14 @@ class InstanceManager:
                 
                 # Procurar nossa instância (comparação case-insensitive e com/sem espaços)
                 found = False
-                our_instance_name = instance.name.strip().lower()
+                our_instance_name = instance.name.strip()
+                our_instance_name_lower = our_instance_name.lower()
                 state = None
                 phone = None
+                api_instance_name_found = None
+                
+                logger.debug(f"Procurando instância '{instance.name}' na lista de {len(instances_data)} instâncias")
+                logger.debug(f"Nomes disponíveis na API: {[i.get('instanceName') or i.get('name') or 'N/A' for i in instances_data]}")
                 
                 for inst_data in instances_data:
                     # Tentar diferentes campos de nome
@@ -237,39 +242,49 @@ class InstanceManager:
                     
                     if api_instance_name:
                         api_name_normalized = api_instance_name.strip().lower()
-                        our_name_normalized = our_instance_name
                         
-                        # Comparação case-insensitive e também verifica se contém ou é contido
-                        # Isso permite "Devocional" encontrar "Devocional-1" e vice-versa
-                        if (api_name_normalized == our_name_normalized or 
-                            api_name_normalized.startswith(our_name_normalized) or
-                            our_name_normalized.startswith(api_name_normalized)):
+                        # Primeiro: comparação exata (case-insensitive)
+                        # Segundo: verifica se um contém o outro (para casos como "Devocional" vs "Devocional-1")
+                        # Terceiro: remove hífens e compara (para casos como "Devocional-1" vs "Devocional1")
+                        exact_match = api_name_normalized == our_instance_name_lower
+                        contains_match = (
+                            api_name_normalized.startswith(our_instance_name_lower) or
+                            our_instance_name_lower.startswith(api_name_normalized)
+                        )
+                        # Remover hífens e espaços para comparação mais flexível
+                        api_name_no_dash = api_name_normalized.replace('-', '').replace('_', '').replace(' ', '')
+                        our_name_no_dash = our_instance_name_lower.replace('-', '').replace('_', '').replace(' ', '')
+                        no_dash_match = api_name_no_dash == our_name_no_dash
+                        
+                        if exact_match or (contains_match and len(api_name_normalized) >= len(our_instance_name_lower) - 2) or no_dash_match:
                             found = True
                             state = inst_data.get('state', 'unknown')
+                            api_instance_name_found = api_instance_name
                             
                             # Salvar o nome real da instância na API (importante para chamadas)
                             instance.api_instance_name = api_instance_name
-                            logger.info(f"Instância configurada como '{instance.name}' encontrada na API como '{api_instance_name}'")
                             
                             # Tentar obter número da instância
-                            phone = inst_data.get('phoneNumber') or inst_data.get('phone') or inst_data.get('number')
+                            phone = inst_data.get('phoneNumber') or inst_data.get('phone') or inst_data.get('number') or inst_data.get('phoneNumber')
                             if phone and not instance.phone_number:
-                                instance.phone_number = phone
+                                instance.phone_number = str(phone)
                                 logger.info(f"Número da instância {instance.name} obtido: {phone}")
                             
-                            logger.info(f"Instância {instance.name} encontrada (API: {api_instance_name}) com estado: {state}")
+                            match_type = "exata" if exact_match else ("sem hífen" if no_dash_match else "parcial")
+                            logger.info(f"✅ Instância '{instance.name}' encontrada na API como '{api_instance_name}' (match: {match_type}, estado: {state})")
                             break  # Encontrou, pode sair do loop
                 
                 # Se encontrou a instância, processar o estado
                 if found and state is not None:
                     # Aceitar vários estados como válidos
-                    if state in ['open', 'connected', 'ready']:
+                    # "open" é o estado padrão quando conectado na Evolution API
+                    if state in ['open', 'connected', 'ready', 'OPEN', 'CONNECTED', 'READY']:
                         instance.status = InstanceStatus.ACTIVE
                         instance.error_count = 0
                         instance.last_check = datetime.now()
-                        logger.info(f"Instância {instance.name} marcada como ACTIVE (estado: {state})")
+                        logger.info(f"✅ Instância {instance.name} marcada como ACTIVE (estado: {state})")
                         return True
-                    elif state == 'unknown':
+                    elif state.lower() == 'unknown' or state == 'UNKNOWN':
                         # Estado "unknown" pode significar que a instância está funcionando mas não reportou status
                         # Tentar verificar se conseguimos obter mais informações
                         try:
