@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 from typing import Optional
 from app.config import settings
 from app.devocional_service_v2 import DevocionalServiceV2
-from app.database import SessionLocal, DevocionalContato, Devocional, DevocionalEnvio, AgendamentoEnvio
+from app.database import SessionLocal, DevocionalContato, Devocional, DevocionalEnvio, AgendamentoEnvio, SystemConfig
 from app.timezone_utils import now_brazil, today_brazil_naive
 from app.devocional_service_v2 import MessageResult
 from app.devocional_integration import devocional_integration
@@ -161,22 +161,46 @@ def send_daily_devocional():
         logger.error(f"Erro no envio automático de devocional: {e}", exc_info=True)
 
 
+def get_send_time_from_db() -> tuple[int, int]:
+    """
+    Obtém horário de envio do banco de dados (dinâmico)
+    Se não encontrar, usa o padrão do .env
+    """
+    db = SessionLocal()
+    try:
+        config = db.query(SystemConfig).filter(SystemConfig.key == "devocional_send_time").first()
+        if config and config.value:
+            try:
+                hour, minute = map(int, config.value.split(':'))
+                if 0 <= hour <= 23 and 0 <= minute <= 59:
+                    return hour, minute
+            except ValueError:
+                pass
+        
+        # Se não encontrou no banco, usa padrão do .env
+        try:
+            send_time_str = settings.DEVOCIONAL_SEND_TIME
+            hour, minute = map(int, send_time_str.split(':'))
+            return hour, minute
+        except:
+            return 6, 0  # Padrão: 06:00
+    finally:
+        db.close()
+
+
 def run_scheduler():
     """
     Executa o scheduler em thread separada
     Usa horário de São Paulo (Brasil) para agendamento
+    Lê horário do banco de dados dinamicamente
     """
     global scheduler_running
     
     scheduler_running = True
     
-    # Parse do horário de envio (horário de São Paulo)
-    try:
-        send_time_str = settings.DEVOCIONAL_SEND_TIME
-        hour, minute = map(int, send_time_str.split(':'))
-    except Exception as e:
-        logger.error(f"Erro ao parsear horário de envio: {e}. Usando 06:00 como padrão.")
-        hour, minute = 6, 0
+    # Obter horário inicial
+    hour, minute = get_send_time_from_db()
+    last_config_check = now_brazil()
     
     logger.info(f"Scheduler de devocionais iniciado. Envio agendado para {hour:02d}:{minute:02d} (horário de São Paulo)")
     
@@ -187,6 +211,14 @@ def run_scheduler():
             now_sp = now_brazil()
             current_hour = now_sp.hour
             current_minute = now_sp.minute
+            
+            # Verificar se a configuração mudou (a cada 5 minutos)
+            if (now_sp - last_config_check).total_seconds() >= 300:
+                new_hour, new_minute = get_send_time_from_db()
+                if new_hour != hour or new_minute != minute:
+                    hour, minute = new_hour, new_minute
+                    logger.info(f"⏰ Horário de envio atualizado dinamicamente para {hour:02d}:{minute:02d}")
+                last_config_check = now_sp
             
             # Log de debug a cada hora para verificar funcionamento
             if current_minute == 0:

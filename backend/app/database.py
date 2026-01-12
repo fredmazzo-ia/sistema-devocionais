@@ -160,6 +160,20 @@ class User(Base):
     last_login = Column(DateTime, nullable=True)
 
 
+class SystemConfig(Base):
+    """Modelo para configurações do sistema (armazenado no banco)"""
+    __tablename__ = "system_configs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, nullable=False, index=True)  # Chave da configuração
+    value = Column(Text, nullable=False)  # Valor da configuração (pode ser JSON)
+    description = Column(String(255), nullable=True)  # Descrição da configuração
+    
+    # Timestamps
+    created_at = Column(DateTime, default=now_brazil)
+    updated_at = Column(DateTime, default=now_brazil, onupdate=now_brazil)
+
+
 class EvolutionInstanceConfig(Base):
     """Modelo para configuração de instâncias Evolution API (armazenado no banco)"""
     __tablename__ = "evolution_instance_configs"

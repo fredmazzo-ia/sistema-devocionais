@@ -150,11 +150,11 @@ async def update_rate_limit_config(
 @router.put("/schedule")
 async def update_schedule_config(
     config: ScheduleConfigUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
-    Atualiza horário de envio automático
-    ⚠️ Requer reiniciar aplicação para aplicar mudanças
+    Atualiza horário de envio automático (dinâmico - não precisa reiniciar)
     """
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Apenas administradores podem alterar configurações")
@@ -168,11 +168,27 @@ async def update_schedule_config(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Formato de horário inválido: {e}")
         
+        # Salvar no banco de dados
+        db_config = db.query(SystemConfig).filter(SystemConfig.key == "devocional_send_time").first()
+        if db_config:
+            db_config.value = config.send_time
+        else:
+            db_config = SystemConfig(
+                key="devocional_send_time",
+                value=config.send_time,
+                description="Horário de envio automático de devocionais (formato HH:MM, horário de Brasília)"
+            )
+            db.add(db_config)
+        
+        db.commit()
+        
+        # Também atualizar variável de ambiente (para compatibilidade)
         os.environ["DEVOCIONAL_SEND_TIME"] = config.send_time
-        logger.info(f"Horário de envio atualizado para {config.send_time} por {current_user.email}")
+        
+        logger.info(f"Horário de envio atualizado para {config.send_time} por {current_user.email} (dinâmico - aplicado imediatamente)")
     
     return {
-        "message": "Horário de envio atualizado. Reinicie a aplicação para aplicar as mudanças.",
+        "message": "Horário de envio atualizado. Mudança será aplicada automaticamente em até 5 minutos.",
         "send_time": config.send_time
     }
 
