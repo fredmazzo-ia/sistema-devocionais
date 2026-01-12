@@ -6,7 +6,7 @@ import logging
 import time
 import requests
 import json
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from enum import Enum
