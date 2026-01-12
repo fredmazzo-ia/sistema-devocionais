@@ -307,7 +307,7 @@ async def process_message_ack(
                 logger.info(f"✅✅ Mensagem {message_id} LIDA por {phone}")
                 
                 # Atualizar engajamento no ShieldService
-                update_engagement_from_read(db, phone, True)
+                update_engagement_from_read(db, phone, True, message_id)
         else:
             logger.warning(f"⚠️ ACK desconhecido: {ack} para message_id {message_id}")
         
@@ -468,7 +468,7 @@ async def process_message_update(
                     logger.info(f"✅✅ Mensagem {message_id} LIDA por {phone}")
                     
                     # Atualizar engajamento
-                    update_engagement_from_read(db, phone, True)
+                    update_engagement_from_read(db, phone, True, message_id)
         
         if updated:
             try:
