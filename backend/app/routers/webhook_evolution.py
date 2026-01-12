@@ -735,6 +735,10 @@ async def process_messages_update(
             envio.delivered_at = event_time
             updated = True
             logger.info(f"✅ Mensagem {message_id} entregue para {phone}")
+            
+            # Atualizar engajamento: entregue mas não lido ainda
+            # Não penalizar ainda, mas marcar como entregue
+            update_engagement_from_delivered(db, phone, True)
         
         elif status == "READ":
             # READ é o mais importante - sempre atualizar
@@ -772,6 +776,24 @@ async def process_messages_update(
         logger.error(f"❌ Erro ao processar messages.update: {e}", exc_info=True)
         db.rollback()
         return {"error": str(e), "data": data}
+
+
+def update_engagement_from_delivered(db: Session, phone: str, was_delivered: bool):
+    """
+    Atualiza score de engajamento baseado em entrega
+    Se não aparecer "delivered", é arriscado (pode estar bloqueado)
+    """
+    try:
+        from app.devocional_service_v2 import DevocionalServiceV2
+        devocional_service = DevocionalServiceV2(db=db)
+        if devocional_service.shield:
+            # Se foi entregue, não penalizar ainda
+            # Mas se não aparecer delivered após alguns minutos, pode ser bloqueado
+            logger.debug(f"Engajamento: mensagem entregue para {phone}")
+        else:
+            logger.warning("ShieldService não está habilitado, não é possível atualizar engajamento")
+    except Exception as e:
+        logger.error(f"Erro ao atualizar engajamento (delivered): {e}", exc_info=True)
 
 
 def update_engagement_from_read(db: Session, phone: str, was_read: bool):

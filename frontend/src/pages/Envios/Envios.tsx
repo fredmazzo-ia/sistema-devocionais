@@ -13,6 +13,13 @@ export default function Envios() {
 
   useEffect(() => {
     loadEnvios()
+    
+    // Atualizar em tempo real a cada 5 segundos
+    const interval = setInterval(() => {
+      loadEnvios()
+    }, 5000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const loadEnvios = async () => {
@@ -58,6 +65,23 @@ export default function Envios() {
       blocked: 'Bloqueado',
     }
     return labels[status] || status
+  }
+
+  const getMessageStatusLabel = (messageStatus?: string) => {
+    if (!messageStatus) return 'Pendente'
+    const labels: Record<string, string> = {
+      sent: 'Enviado',
+      delivered: 'Entregue',
+      read: 'Lida',
+      failed: 'Falhou',
+      pending: 'Pendente',
+    }
+    return labels[messageStatus] || messageStatus
+  }
+
+  const getMessageStatusColor = (messageStatus?: string) => {
+    if (!messageStatus) return 'pending'
+    return messageStatus
   }
 
   const stats = {
@@ -176,10 +200,17 @@ export default function Envios() {
                   <td>{envio.recipient_name || '-'}</td>
                   <td className="phone-cell">{envio.recipient_phone}</td>
                   <td>
-                    <span className={`status-badge ${envio.status}`}>
-                      {getStatusIcon(envio.status)}
-                      {getStatusLabel(envio.status)}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span className={`status-badge ${envio.status}`}>
+                        {getStatusIcon(envio.status)}
+                        {getStatusLabel(envio.status)}
+                      </span>
+                      {envio.message_status && envio.message_status !== envio.status && (
+                        <span className={`message-status-badge ${getMessageStatusColor(envio.message_status)}`}>
+                          {getMessageStatusLabel(envio.message_status)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="instance-cell">{envio.instance_name || '-'}</td>
                   <td className="error-cell">

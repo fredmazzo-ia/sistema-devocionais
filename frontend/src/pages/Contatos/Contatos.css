@@ -170,6 +170,36 @@
   color: #991b1b;
 }
 
+.score-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 50px;
+  text-align: center;
+}
+
+.score-badge.score-high {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.score-badge.score-medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.score-badge.score-low {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.score-badge.score-unknown {
+  background: #e5e7eb;
+  color: #6b7280;
+}
+
 .instance-cell {
   font-size: 12px;
   color: #6b7280;

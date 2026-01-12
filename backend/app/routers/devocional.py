@@ -36,6 +36,8 @@ class ContatoResponse(BaseModel):
     created_at: datetime
     last_sent: Optional[datetime]
     total_sent: int
+    engagement_score: Optional[float] = None  # Score de engajamento (0.0 a 1.0)
+    instance_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -313,21 +315,76 @@ async def create_contato(
 
 @router.get("/contatos", response_model=List[ContatoResponse])
 async def list_contatos(
-    active_only: bool = True,
+    active_only: Optional[bool] = None,
+    skip: int = 0,
+    limit: int = 1000,
     db: Session = Depends(get_db)
 ):
     """
-    Lista todos os contatos
+    Lista todos os contatos com score de engajamento
     """
     try:
+        from app.devocional_service_v2 import DevocionalServiceV2
+        from app.routers.engagement_stats import get_contact_engagement_stats
+        from datetime import timedelta
+        from app.timezone_utils import now_brazil_naive
+        
         query = db.query(DevocionalContato)
         
-        if active_only:
-            query = query.filter(DevocionalContato.active == True)
+        if active_only is not None:
+            query = query.filter(DevocionalContato.active == active_only)
         
-        contatos = query.order_by(DevocionalContato.name, DevocionalContato.phone).all()
+        contatos = query.order_by(DevocionalContato.name, DevocionalContato.phone).offset(skip).limit(limit).all()
         
-        return [ContatoResponse.model_validate(c) for c in contatos]
+        # Calcular score de engajamento para cada contato
+        result = []
+        for contato in contatos:
+            # Buscar envios do contato nos últimos 30 dias
+            date_limit = now_brazil_naive() - timedelta(days=30)
+            envios = db.query(DevocionalEnvio).filter(
+                DevocionalEnvio.recipient_phone == contato.phone,
+                DevocionalEnvio.sent_at >= date_limit
+            ).all()
+            
+            total_sent = len(envios)
+            total_delivered = sum(1 for e in envios if e.message_status in ['delivered', 'read'])
+            total_read = sum(1 for e in envios if e.message_status == 'read')
+            
+            # Calcular score baseado em taxa de leitura
+            # Se não aparecer "delivered", é arriscado (reduz score)
+            # Se não ler, reduz score ainda mais
+            if total_sent > 0:
+                delivery_rate = total_delivered / total_sent
+                read_rate = total_read / total_sent
+                
+                # Score = média ponderada: 40% entrega, 60% leitura
+                # Se não foi entregue, penalizar mais
+                if delivery_rate < 0.5:
+                    # Menos de 50% entregue = muito arriscado
+                    engagement_score = 0.2
+                elif read_rate < 0.3:
+                    # Menos de 30% lido = arriscado
+                    engagement_score = 0.3 + (read_rate * 0.4)
+                else:
+                    # Bom engajamento
+                    engagement_score = 0.5 + (read_rate * 0.5)
+            else:
+                # Sem histórico, score neutro
+                engagement_score = 0.5
+            
+            # Buscar última instância usada
+            last_envio = db.query(DevocionalEnvio).filter(
+                DevocionalEnvio.recipient_phone == contato.phone
+            ).order_by(DevocionalEnvio.sent_at.desc()).first()
+            
+            instance_name = last_envio.instance_name if last_envio else None
+            
+            contato_dict = ContatoResponse.model_validate(contato).model_dump()
+            contato_dict['engagement_score'] = round(engagement_score, 2)
+            contato_dict['instance_name'] = instance_name
+            result.append(ContatoResponse(**contato_dict))
+        
+        return result
     
     except Exception as e:
         logger.error(f"Erro ao listar contatos: {e}", exc_info=True)
@@ -420,6 +477,9 @@ async def list_envios(
             {
                 "id": e.id,
                 "devocional_id": e.devocional_id,
+                "message_status": e.message_status,  # sent, delivered, read
+                "delivered_at": e.delivered_at.isoformat() if e.delivered_at else None,
+                "read_at": e.read_at.isoformat() if e.read_at else None,
                 "recipient_phone": e.recipient_phone,
                 "recipient_name": e.recipient_name,
                 "message": e.message_text,  # Campo correto do modelo

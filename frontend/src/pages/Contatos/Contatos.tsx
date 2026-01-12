@@ -15,6 +15,13 @@ export default function Contatos() {
 
   useEffect(() => {
     loadContatos()
+    
+    // Atualizar em tempo real a cada 10 segundos
+    const interval = setInterval(() => {
+      loadContatos()
+    }, 10000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const loadContatos = async () => {
@@ -157,6 +164,7 @@ export default function Contatos() {
               <th>Nome</th>
               <th>Telefone</th>
               <th>Status</th>
+              <th>Score</th>
               <th>Total Enviados</th>
               <th>Último Envio</th>
               <th>Instância</th>
@@ -166,7 +174,7 @@ export default function Contatos() {
           <tbody>
             {filteredContatos.length === 0 ? (
               <tr>
-                <td colSpan={7} className="empty-state">
+                <td colSpan={8} className="empty-state">
                   {searchTerm ? 'Nenhum contato encontrado' : 'Nenhum contato cadastrado'}
                 </td>
               </tr>
@@ -190,6 +198,26 @@ export default function Contatos() {
                     >
                       {contato.active ? 'Ativo' : 'Inativo'}
                     </span>
+                  </td>
+                  <td>
+                    {contato.engagement_score !== null && contato.engagement_score !== undefined ? (
+                      <span
+                        className={`score-badge ${
+                          contato.engagement_score >= 0.7
+                            ? 'score-high'
+                            : contato.engagement_score >= 0.4
+                            ? 'score-medium'
+                            : 'score-low'
+                        }`}
+                        title={`Score de engajamento: ${(contato.engagement_score * 100).toFixed(0)}%`}
+                      >
+                        {(contato.engagement_score * 100).toFixed(0)}%
+                      </span>
+                    ) : (
+                      <span className="score-badge score-unknown" title="Score não disponível">
+                        -
+                      </span>
+                    )}
                   </td>
                   <td>{contato.total_sent || 0}</td>
                   <td>

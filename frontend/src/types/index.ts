@@ -31,6 +31,7 @@ export interface Contato {
   total_sent: number
   last_sent: string | null
   instance_name: string | null
+  engagement_score: number | null  // Score de engajamento (0.0 a 1.0)
   created_at: string
   updated_at: string
 }
@@ -42,10 +43,13 @@ export interface Envio {
   recipient_name: string | null
   message: string
   status: 'sent' | 'failed' | 'pending' | 'retrying' | 'blocked'
+  message_status: 'sent' | 'delivered' | 'read' | 'failed' | 'pending'  // Status detalhado da mensagem
   instance_name: string | null
   error: string | null
   retry_count: number
   sent_at: string | null
+  delivered_at: string | null  // Quando foi entregue
+  read_at: string | null  // Quando foi lida
   created_at: string
 }
 

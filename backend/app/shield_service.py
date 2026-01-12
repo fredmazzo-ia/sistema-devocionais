@@ -238,11 +238,23 @@ class ShieldService:
                 # Visualizou = engajamento positivo (aumenta score)
                 data.engagement_score = min(1.0, data.engagement_score + 0.05)
                 data.consecutive_no_response = 0
+                data.consecutive_not_read = 0
                 logger.debug(f"Devocional visualizado por {phone}, score aumentado")
             else:
-                # Não visualizou ainda = manter score (não reduzir imediatamente)
-                # O score só será reduzido se nunca visualizar após vários envios
-                logger.debug(f"Devocional enviado para {phone}, aguardando visualização")
+                # Não visualizou ainda = penalizar score gradualmente
+                # Se não aparecer "delivered", é arriscado (pode estar bloqueado)
+                # Se não ler após vários envios, reduzir score
+                data.consecutive_not_read += 1
+                
+                # Penalizar mais se não foi entregue (delivered)
+                # Isso será verificado quando recebermos o status "delivered"
+                # Por enquanto, apenas contar como não lido
+                if data.consecutive_not_read >= 3:
+                    # Após 3 mensagens não lidas, começar a reduzir score
+                    data.engagement_score = max(0.0, data.engagement_score - 0.02)
+                    logger.debug(f"Devocional não lido por {phone} ({data.consecutive_not_read}x), score reduzido")
+                else:
+                    logger.debug(f"Devocional enviado para {phone}, aguardando visualização ({data.consecutive_not_read}x)")
         else:
             # Para mensagens interativas, usar resposta
             if responded:
