@@ -133,6 +133,16 @@ async def receive_message_status(
             logger.error(f"❌ Erro ao registrar webhook event: {audit_error}", exc_info=True)
             # Não falhar o webhook por causa do audit
         
+        # Verificar se é mensagem recebida (para processar consentimento)
+        if event == "messages.upsert" or event == "messages.create":
+            # Processar mensagem recebida (pode ser resposta de consentimento)
+            await process_incoming_message(db, body, instance_name)
+            return {
+                "success": True,
+                "message": "Mensagem recebida processada",
+                "event": event
+            }
+        
         # Se for evento que não é de status de mensagem, ignorar (ex: send_devocional vai para /api/notifications/webhook)
         if event not in ["messages.update", "message.ack", ""] and not body.get("MessageUpdate"):
             logger.info(f"ℹ️ Evento '{event}' não é de status de mensagem, ignorando (deve ir para /api/notifications/webhook)")
@@ -317,9 +327,12 @@ async def process_message_ack(
             if envio.message_status != "read":
                 envio.message_status = "read"
                 envio.read_at = event_time
-                # Se ainda não tinha delivered_at, marcar também
+                # IMPORTANTE: Se passou direto de pending para READ, marcar como delivered também
                 if not envio.delivered_at:
                     envio.delivered_at = event_time
+                    logger.info(f"✅ Mensagem {message_id} marcada como DELIVERED (passou direto para READ)")
+                    # Atualizar engajamento de delivered também
+                    update_engagement_from_delivered(db, phone, True, message_id)
                 updated = True
                 logger.info(f"✅✅ Mensagem {message_id} LIDA por {phone}")
                 
@@ -633,15 +646,19 @@ async def process_message_update(
                 # READ é o mais importante - sempre atualizar
                 envio.message_status = "read"
                 envio.read_at = event_time
+                # IMPORTANTE: Se passou direto de pending para READ, marcar como delivered também
                 if not envio.delivered_at:
                     envio.delivered_at = event_time
+                    logger.info(f"✅ Mensagem {message_id} marcada como DELIVERED (passou direto para READ)")
+                    # Atualizar engajamento de delivered também
+                    update_engagement_from_delivered(db, phone, True, message_id)
                 final_status = "read"
                 updated = True
                 has_read = True
                 logger.info(f"✅✅ Mensagem {message_id} LIDA por {phone}")
                 
                 # Atualizar engajamento
-                update_engagement_from_read(db, phone, True)
+                update_engagement_from_read(db, phone, True, message_id)
         
         if updated:
             try:
