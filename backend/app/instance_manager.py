@@ -4,7 +4,7 @@ Sistema de rotação e distribuição de carga entre instâncias
 """
 import logging
 import requests
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
