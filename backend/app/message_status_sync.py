@@ -198,7 +198,9 @@ class MessageStatusSync:
                     logger.debug(f"Endpoint {endpoint} não funcionou: {e}")
                     continue
             
-            logger.warning(f"⚠️ Nenhum endpoint funcionou para buscar mensagens de {instance_name}")
+            # Não é erro crítico - os webhooks continuam funcionando
+            # Apenas logar em nível debug para não poluir os logs
+            logger.debug(f"ℹ️ Nenhum endpoint de busca funcionou para {instance_name} (webhooks continuam funcionando)")
             return []
             
         except Exception as e:
