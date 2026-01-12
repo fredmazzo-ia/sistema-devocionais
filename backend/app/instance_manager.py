@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 import random
 import time
+from app.timezone_utils import now_brazil
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ class InstanceManager:
             EvolutionInstance disponível ou None
         """
         # Primeiro, tentar verificar saúde de instâncias que não foram verificadas recentemente
-        now = datetime.now()
+        now = now_brazil()
         for inst in self.instances:
             if inst.enabled:
                 # Se nunca foi verificada ou foi há mais de 5 minutos, verificar agora
@@ -326,7 +327,7 @@ class InstanceManager:
                     if state_lower in ['open', 'connected', 'ready', 'close']:
                         instance.status = InstanceStatus.ACTIVE
                         instance.error_count = 0
-                        instance.last_check = datetime.now()
+                        instance.last_check = now_brazil()
                         logger.info(f"✅ Instância {instance.name} marcada como ACTIVE (estado: {state})")
                         return True
                     elif state.lower() == 'unknown' or state == 'UNKNOWN':
@@ -354,7 +355,7 @@ class InstanceManager:
                                         if connection_state.lower() in ['open', 'connected', 'ready']:
                                             instance.status = InstanceStatus.ACTIVE
                                             instance.error_count = 0
-                                            instance.last_check = datetime.now()
+                                            instance.last_check = now_brazil()
                                             logger.info(f"✅ Instância {instance.name} verificada via connectionState: {connection_state} - marcada como ACTIVE")
                                             return True
                                         elif connection_state.lower() != 'unknown':
@@ -386,7 +387,7 @@ class InstanceManager:
                                 if fetch_state.lower() in ['open', 'connected', 'ready']:
                                     instance.status = InstanceStatus.ACTIVE
                                     instance.error_count = 0
-                                    instance.last_check = datetime.now()
+                                    instance.last_check = now_brazil()
                                     logger.info(f"✅ Instância {instance.name} verificada via fetchInstance: {fetch_state} - marcada como ACTIVE")
                                     return True
                                 
@@ -398,7 +399,7 @@ class InstanceManager:
                                     # Sem QR code e estado unknown = provavelmente conectada
                                     instance.status = InstanceStatus.ACTIVE
                                     instance.error_count = 0
-                                    instance.last_check = datetime.now()
+                                    instance.last_check = now_brazil()
                                     logger.info(f"✅ Instância {instance.name} marcada como ACTIVE (sem QR code via fetchInstance = conectada)")
                                     return True
                         except Exception as e:
@@ -409,7 +410,7 @@ class InstanceManager:
                             (datetime.now() - instance.last_message_time).total_seconds() < 86400):
                             instance.status = InstanceStatus.ACTIVE
                             instance.error_count = 0
-                            instance.last_check = datetime.now()
+                            instance.last_check = now_brazil()
                             logger.info(f"✅ Instância {instance.name} com estado unknown mas funcionou recentemente (envios hoje: {instance.messages_sent_today}) - marcada como ACTIVE")
                             return True
                         
@@ -418,7 +419,7 @@ class InstanceManager:
                             logger.info(f"Instância {instance.name} tem número de telefone ({instance.phone_number}), provavelmente está conectada")
                             instance.status = InstanceStatus.ACTIVE
                             instance.error_count = 0
-                            instance.last_check = datetime.now()
+                            instance.last_check = now_brazil()
                             logger.info(f"✅ Instância {instance.name} marcada como ACTIVE (tem número de telefone, provavelmente conectada)")
                             return True
                         
@@ -446,7 +447,7 @@ class InstanceManager:
                                     # Sem QR code = conectada (instâncias desconectadas sempre têm QR code)
                                     instance.status = InstanceStatus.ACTIVE
                                     instance.error_count = 0
-                                    instance.last_check = datetime.now()
+                                    instance.last_check = now_brazil()
                                     logger.info(f"✅ Instância {instance.name} marcada como ACTIVE (existe na API e não tem QR code = conectada)")
                                     return True
                                 else:
@@ -456,12 +457,12 @@ class InstanceManager:
                         
                         # Se nenhum método funcionou, marcar como INACTIVE mas permitir uso
                         instance.status = InstanceStatus.INACTIVE
-                        instance.last_check = datetime.now()
+                        instance.last_check = now_brazil()
                         logger.warning(f"⚠️ Instância {instance.name} está {state} e não foi possível verificar status real. Marcada como INACTIVE (mas tentará usar se necessário)")
                         return False
                     else:
                         instance.status = InstanceStatus.INACTIVE
-                        instance.last_check = datetime.now()
+                        instance.last_check = now_brazil()
                         logger.warning(f"Instância {instance.name} está {state}, marcada como INACTIVE")
                         return False
                 
@@ -513,7 +514,7 @@ class InstanceManager:
         if success:
             instance.messages_sent_today += 1
             instance.messages_sent_this_hour += 1
-            instance.last_message_time = datetime.now()
+            instance.last_message_time = now_brazil()
             instance.error_count = 0
         else:
             instance.error_count += 1
@@ -523,7 +524,7 @@ class InstanceManager:
     
     def reset_daily_counters(self):
         """Reseta contadores diários de todas as instâncias"""
-        now = datetime.now()
+        now = now_brazil()
         for instance in self.instances:
             if instance.last_message_time:
                 # Reset diário
@@ -536,7 +537,7 @@ class InstanceManager:
     
     def reset_hourly_counters(self):
         """Reseta contadores horários de todas as instâncias"""
-        now = datetime.now()
+        now = now_brazil()
         for instance in self.instances:
             if instance.last_message_time and instance.last_message_time.hour != now.hour:
                 instance.messages_sent_this_hour = 0

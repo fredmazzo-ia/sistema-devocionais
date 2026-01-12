@@ -41,7 +41,8 @@ class MessageResult:
     
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.now()
+            from app.timezone_utils import now_brazil
+            self.timestamp = now_brazil()
 
 
 class DevocionalServiceV2:

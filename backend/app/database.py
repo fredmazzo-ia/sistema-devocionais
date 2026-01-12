@@ -6,6 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 from app.config import settings
+from app.timezone_utils import now_brazil
 
 # Criar engine
 engine = create_engine(
@@ -43,10 +44,10 @@ class DevocionalEnvio(Base):
     # Instância que enviou (para multi-instância)
     instance_name = Column(String(100))  # Nome da instância Evolution API que enviou
     
-    # Timestamps
-    sent_at = Column(DateTime, default=datetime.utcnow, index=True)
+    # Timestamps (sempre em horário de Brasília)
+    sent_at = Column(DateTime, default=now_brazil, index=True)
     scheduled_for = Column(DateTime, index=True)  # Para envios agendados
-    created_at = Column(DateTime, default=datetime.utcnow)  # Data de criação do registro
+    created_at = Column(DateTime, default=now_brazil)  # Data de criação do registro
 
 
 class DevocionalContato(Base):
@@ -64,9 +65,9 @@ class DevocionalContato(Base):
     last_sent = Column(DateTime)  # Último envio
     total_sent = Column(Integer, default=0)  # Total de devocionais recebidos
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Timestamps (sempre em horário de Brasília)
+    created_at = Column(DateTime, default=now_brazil)
+    updated_at = Column(DateTime, default=now_brazil, onupdate=now_brazil)
 
 
 class Devocional(Base):
@@ -78,7 +79,7 @@ class Devocional(Base):
     # Conteúdo principal
     title = Column(String(255))  # Título do devocional (sem emoji)
     content = Column(Text, nullable=False)  # Texto completo formatado para WhatsApp
-    date = Column(DateTime, default=datetime.utcnow, index=True)  # Data do devocional
+    date = Column(DateTime, default=now_brazil, index=True)  # Data do devocional (horário de Brasília)
     
     # Versículos estruturados
     versiculo_principal_texto = Column(Text)  # Texto do versículo principal
@@ -100,9 +101,9 @@ class Devocional(Base):
     # Metadados adicionais (JSON)
     metadata_json = Column(Text)  # JSON com metadados adicionais
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Timestamps (sempre em horário de Brasília)
+    created_at = Column(DateTime, default=now_brazil, index=True)
+    updated_at = Column(DateTime, default=now_brazil, onupdate=now_brazil)
 
 
 class AgendamentoEnvio(Base):
@@ -137,9 +138,9 @@ class AgendamentoEnvio(Base):
     # Metadados
     metadata_json = Column(Text)  # JSON com metadados adicionais
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Timestamps (sempre em horário de Brasília)
+    created_at = Column(DateTime, default=now_brazil, index=True)
+    updated_at = Column(DateTime, default=now_brazil, onupdate=now_brazil)
 
 
 class User(Base):
@@ -153,9 +154,9 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Timestamps (sempre em horário de Brasília)
+    created_at = Column(DateTime, default=now_brazil)
+    updated_at = Column(DateTime, default=now_brazil, onupdate=now_brazil)
     last_login = Column(DateTime, nullable=True)
 
 
@@ -197,9 +198,9 @@ class EvolutionInstanceConfig(Base):
     last_error = Column(Text, nullable=True)
     last_check = Column(DateTime, nullable=True)
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Timestamps (sempre em horário de Brasília)
+    created_at = Column(DateTime, default=now_brazil)
+    updated_at = Column(DateTime, default=now_brazil, onupdate=now_brazil)
 
 
 # Função para obter sessão do banco

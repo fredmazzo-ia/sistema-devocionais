@@ -542,7 +542,8 @@ async def get_today_devocional(db: Session = Depends(get_db)):
         
         if devocional:
             # Buscar objeto completo do banco
-            today = datetime.now().date()
+            from app.timezone_utils import today_brazil
+            today = today_brazil().date()
             db_devocional = db.query(Devocional).filter(
                 Devocional.date >= datetime.combine(today, datetime.min.time()),
                 Devocional.date < datetime.combine(today, datetime.max.time())

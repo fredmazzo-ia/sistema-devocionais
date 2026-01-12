@@ -114,7 +114,8 @@ class DevocionalIntegration:
         db = SessionLocal()
         try:
             # Verificar se já existe devocional para hoje
-            today = datetime.now().date()
+            from app.timezone_utils import today_brazil
+            today = today_brazil().date()
             existing = db.query(Devocional).filter(
                 Devocional.date >= datetime.combine(today, datetime.min.time()),
                 Devocional.date < datetime.combine(today, datetime.max.time())
@@ -137,7 +138,8 @@ class DevocionalIntegration:
                 devocional = Devocional(
                     content=content,
                     title=title,
-                    date=datetime.now(),
+                    from app.timezone_utils import now_brazil
+                    date=now_brazil(),
                     source=source,
                     metadata_json=json.dumps(metadata) if metadata else None
                 )
@@ -176,7 +178,8 @@ class DevocionalIntegration:
         """
         db = SessionLocal()
         try:
-            today = datetime.now().date()
+            from app.timezone_utils import today_brazil
+            today = today_brazil().date()
             devocional = db.query(Devocional).filter(
                 Devocional.date >= datetime.combine(today, datetime.min.time()),
                 Devocional.date < datetime.combine(today, datetime.max.time())

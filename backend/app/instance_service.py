@@ -9,6 +9,7 @@ import requests
 import logging
 from app.database import EvolutionInstanceConfig
 from app.config import settings
+from app.timezone_utils import now_brazil
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +133,7 @@ class InstanceService:
             if phone:
                 db_instance.phone_number = str(phone).strip()
             
-            db_instance.last_check = datetime.now()
+            db_instance.last_check = now_brazil()
             synced_instances.append(db_instance)
         
         self.db.commit()
@@ -219,7 +220,7 @@ class InstanceService:
         if enabled is not None:
             instance.enabled = enabled
         
-        instance.updated_at = datetime.now()
+        instance.updated_at = now_brazil()
         self.db.commit()
         self.db.refresh(instance)
         

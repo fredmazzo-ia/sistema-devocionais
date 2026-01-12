@@ -149,7 +149,8 @@ class ShieldService:
     def take_break(self):
         """Executa pausa estratégica"""
         duration = self.get_break_duration()
-        self.metrics.last_break_time = datetime.now()
+        from app.timezone_utils import now_brazil
+        self.metrics.last_break_time = now_brazil()
         self.metrics.messages_since_break = 0
         
         logger.info(f"Executando pausa estratégica de {duration:.2f} segundos...")
@@ -167,7 +168,8 @@ class ShieldService:
             True se é horário seguro
         """
         if hour is None:
-            hour = datetime.now().hour
+            from app.timezone_utils import now_brazil
+            hour = now_brazil().hour
         
         # Horários seguros: 6h-22h
         safe_hours = list(range(6, 23))
@@ -219,11 +221,13 @@ class ShieldService:
         
         data = self.engagement_data[phone]
         data.total_sent += 1
-        data.last_sent_date = datetime.now()
+        from app.timezone_utils import now_brazil
+        data.last_sent_date = now_brazil()
         
         if responded:
             data.total_responded += 1
-            data.last_response_date = datetime.now()
+            from app.timezone_utils import now_brazil
+            data.last_response_date = now_brazil()
             data.consecutive_no_response = 0
             # Aumentar score
             data.engagement_score = min(1.0, data.engagement_score + 0.1)
@@ -299,7 +303,8 @@ class ShieldService:
         for pattern in error_patterns:
             if pattern in error_text:
                 self.metrics.consecutive_errors += 1
-                self.metrics.last_error_time = datetime.now()
+                from app.timezone_utils import now_brazil
+                self.metrics.last_error_time = now_brazil()
                 
                 logger.warning(
                     f"Padrão de bloqueio detectado: '{pattern}'. "
