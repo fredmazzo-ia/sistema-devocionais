@@ -167,7 +167,7 @@ async def create_instance(
             "qr_code": qr_code,
             "instance_name": instance_data.name,
             "message": "Instância criada com sucesso! Escaneie o QR code com WhatsApp para conectar.",
-            "instance": InstanceResponse.from_orm(instance)
+            "instance": InstanceResponse.model_validate(instance)
         }
     
     except HTTPException:
@@ -338,7 +338,7 @@ async def update_instance(
                 detail=f"Instância {instance_name} não encontrada"
             )
         
-        return InstanceResponse.from_orm(instance)
+        return InstanceResponse.model_validate(instance)
     
     except HTTPException:
         raise
