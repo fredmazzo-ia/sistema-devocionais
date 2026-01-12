@@ -473,13 +473,11 @@ async def list_envios(
             DevocionalEnvio.sent_at.desc()
         ).offset(skip).limit(limit).all()
         
-        return [
-            {
+        result = []
+        for e in envios:
+            envio_dict = {
                 "id": e.id,
                 "devocional_id": e.devocional_id,
-                "message_status": e.message_status,  # sent, delivered, read
-                "delivered_at": e.delivered_at.isoformat() if e.delivered_at else None,
-                "read_at": e.read_at.isoformat() if e.read_at else None,
                 "recipient_phone": e.recipient_phone,
                 "recipient_name": e.recipient_name,
                 "message": e.message_text,  # Campo correto do modelo
@@ -490,10 +488,15 @@ async def list_envios(
                 "message_id": e.message_id,
                 "error_message": e.error_message,
                 "error": e.error_message,  # Alias para compatibilidade
-                "retry_count": e.retry_count
+                "retry_count": e.retry_count,
+                # Campos de status detalhado
+                "message_status": e.message_status if hasattr(e, 'message_status') else None,  # sent, delivered, read
+                "delivered_at": e.delivered_at.isoformat() if hasattr(e, 'delivered_at') and e.delivered_at else None,
+                "read_at": e.read_at.isoformat() if hasattr(e, 'read_at') and e.read_at else None,
             }
-            for e in envios
-        ]
+            result.append(envio_dict)
+        
+        return result
     
     except Exception as e:
         logger.error(f"Erro ao listar envios: {e}", exc_info=True)
