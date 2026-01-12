@@ -285,42 +285,88 @@ class InstanceManager:
                         logger.info(f"✅ Instância {instance.name} marcada como ACTIVE (estado: {state})")
                         return True
                     elif state.lower() == 'unknown' or state == 'UNKNOWN':
-                        # Estado "unknown" pode significar que a instância está funcionando mas não reportou status
-                        # Tentar verificar se conseguimos obter mais informações
+                        # Estado "unknown" - tentar verificar status real de várias formas
+                        logger.info(f"Instância {instance.name} retornou estado 'unknown', verificando status real...")
+                        
+                        connection_verified = False
+                        
+                        # Método 1: Tentar buscar status mais detalhado via connectionState
                         try:
-                            # Tentar buscar status mais detalhado
-                            status_url = f"{instance.api_url}/instance/connectionState/{instance.name}"
-                            status_response = requests.get(status_url, headers=headers, timeout=5)
+                            api_name = getattr(instance, 'api_instance_name', None) or instance.name
+                            status_urls = [
+                                f"{instance.api_url}/instance/connectionState/{api_name}",
+                                f"{instance.api_url}/instance/{api_name}/connectionState",
+                                f"{instance.api_url}/instance/connectionState",
+                            ]
                             
-                            if status_response.status_code == 200:
-                                status_data = status_response.json()
-                                connection_state = status_data.get('state', 'unknown')
+                            for status_url in status_urls:
+                                try:
+                                    status_response = requests.get(status_url, headers=headers, timeout=5)
+                                    if status_response.status_code == 200:
+                                        status_data = status_response.json()
+                                        connection_state = status_data.get('state', 'unknown')
+                                        
+                                        if connection_state.lower() in ['open', 'connected', 'ready']:
+                                            instance.status = InstanceStatus.ACTIVE
+                                            instance.error_count = 0
+                                            instance.last_check = datetime.now()
+                                            logger.info(f"✅ Instância {instance.name} verificada via connectionState: {connection_state} - marcada como ACTIVE")
+                                            return True
+                                        elif connection_state.lower() != 'unknown':
+                                            logger.debug(f"connectionState retornou: {connection_state}")
+                                except Exception as e:
+                                    logger.debug(f"Erro ao verificar {status_url}: {e}")
+                                    continue
+                        except Exception as e:
+                            logger.debug(f"Erro ao verificar connectionState: {e}")
+                        
+                        # Método 2: Tentar verificar via fetchInstance específica
+                        try:
+                            api_name = getattr(instance, 'api_instance_name', None) or instance.name
+                            fetch_url = f"{instance.api_url}/instance/fetchInstance/{api_name}"
+                            fetch_response = requests.get(fetch_url, headers=headers, timeout=5)
+                            
+                            if fetch_response.status_code == 200:
+                                fetch_data = fetch_response.json()
+                                # Pode retornar objeto único ou lista
+                                if isinstance(fetch_data, list) and len(fetch_data) > 0:
+                                    fetch_data = fetch_data[0]
                                 
-                                if connection_state in ['open', 'connected', 'ready']:
+                                fetch_state = fetch_data.get('state', 'unknown')
+                                if fetch_state.lower() in ['open', 'connected', 'ready']:
                                     instance.status = InstanceStatus.ACTIVE
                                     instance.error_count = 0
                                     instance.last_check = datetime.now()
-                                    logger.info(f"Instância {instance.name} com estado unknown mas connectionState={connection_state}, marcada como ACTIVE")
+                                    logger.info(f"✅ Instância {instance.name} verificada via fetchInstance: {fetch_state} - marcada como ACTIVE")
                                     return True
                         except Exception as e:
-                            logger.debug(f"Erro ao verificar connectionState de {instance.name}: {e}")
+                            logger.debug(f"Erro ao verificar fetchInstance: {e}")
                         
-                        # Se não conseguiu verificar ou connectionState também é unknown
-                        # Verificar se houve envios recentes (últimas 24h) ou se mensagens foram enviadas hoje
+                        # Método 3: Verificar se houve envios recentes (últimas 24h)
                         if instance.messages_sent_today > 0 or (instance.last_message_time and 
                             (datetime.now() - instance.last_message_time).total_seconds() < 86400):
                             instance.status = InstanceStatus.ACTIVE
                             instance.error_count = 0
                             instance.last_check = datetime.now()
-                            logger.info(f"Instância {instance.name} com estado unknown mas funcionou recentemente (envios hoje: {instance.messages_sent_today}), marcada como ACTIVE")
+                            logger.info(f"✅ Instância {instance.name} com estado unknown mas funcionou recentemente (envios hoje: {instance.messages_sent_today}) - marcada como ACTIVE")
                             return True
-                        else:
-                            # Se não funcionou recentemente, marcar como INACTIVE mas não ERROR
-                            # Isso permite que o sistema tente usar a instância mesmo assim
-                            instance.status = InstanceStatus.INACTIVE
+                        
+                        # Método 4: Se a instância tem número de telefone, provavelmente está conectada
+                        if instance.phone_number:
+                            logger.info(f"Instância {instance.name} tem número de telefone ({instance.phone_number}), provavelmente está conectada")
+                            # Tentar fazer um teste de envio ou verificação
+                            # Por enquanto, marcar como ACTIVE se tem número
+                            instance.status = InstanceStatus.ACTIVE
+                            instance.error_count = 0
                             instance.last_check = datetime.now()
-                            logger.warning(f"Instância {instance.name} está {state}, marcada como INACTIVE (mas pode funcionar - tentará usar se necessário)")
-                            return False
+                            logger.info(f"✅ Instância {instance.name} marcada como ACTIVE (tem número de telefone, provavelmente conectada)")
+                            return True
+                        
+                        # Se nenhum método funcionou, marcar como INACTIVE mas permitir uso
+                        instance.status = InstanceStatus.INACTIVE
+                        instance.last_check = datetime.now()
+                        logger.warning(f"⚠️ Instância {instance.name} está {state} e não foi possível verificar status real. Marcada como INACTIVE (mas tentará usar se necessário)")
+                        return False
                     else:
                         instance.status = InstanceStatus.INACTIVE
                         instance.last_check = datetime.now()

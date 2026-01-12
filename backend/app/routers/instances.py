@@ -300,6 +300,8 @@ async def connect_instance(
         url = f"{api_url}/instance/fetchInstances"
         headers = {"apikey": api_key}
         
+        logger.debug(f"Verificando conexão da instância {instance_name} em {url}")
+        
         response = requests.get(url, headers=headers, timeout=10)
         
         if response.status_code == 200:
