@@ -181,18 +181,35 @@ async def update_schedule_config(
             raise HTTPException(status_code=400, detail=f"Formato de horário inválido: {e}")
         
         # Salvar no banco de dados
-        db_config = db.query(SystemConfig).filter(SystemConfig.key == "devocional_send_time").first()
-        if db_config:
-            db_config.value = config.send_time
-        else:
-            db_config = SystemConfig(
-                key="devocional_send_time",
-                value=config.send_time,
-                description="Horário de envio automático de devocionais (formato HH:MM, horário de Brasília)"
-            )
-            db.add(db_config)
-        
-        db.commit()
+        try:
+            db_config = db.query(SystemConfig).filter(SystemConfig.key == "devocional_send_time").first()
+            if db_config:
+                logger.info(f"Atualizando horário existente: {db_config.value} -> {config.send_time}")
+                db_config.value = config.send_time
+            else:
+                logger.info(f"Criando nova configuração de horário: {config.send_time}")
+                db_config = SystemConfig(
+                    key="devocional_send_time",
+                    value=config.send_time,
+                    description="Horário de envio automático de devocionais (formato HH:MM, horário de Brasília)"
+                )
+                db.add(db_config)
+            
+            db.commit()
+            db.refresh(db_config)  # Garantir que está atualizado
+            
+            # Verificar se foi salvo corretamente
+            verify_config = db.query(SystemConfig).filter(SystemConfig.key == "devocional_send_time").first()
+            if verify_config and verify_config.value == config.send_time:
+                logger.info(f"✅ Horário de envio salvo com sucesso no banco: {verify_config.value}")
+            else:
+                logger.error(f"❌ Erro: Horário não foi salvo corretamente. Esperado: {config.send_time}, Encontrado: {verify_config.value if verify_config else 'None'}")
+                raise HTTPException(status_code=500, detail="Erro ao salvar horário no banco de dados")
+            
+        except Exception as e:
+            logger.error(f"Erro ao salvar horário no banco: {e}", exc_info=True)
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Erro ao salvar horário: {str(e)}")
         
         # Também atualizar variável de ambiente (para compatibilidade)
         os.environ["DEVOCIONAL_SEND_TIME"] = config.send_time
