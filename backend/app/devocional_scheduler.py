@@ -139,10 +139,15 @@ def send_daily_devocional():
             
             # Atualizar agendamento após envio
             # O modelo AgendamentoEnvio só tem campos básicos: devocional_id, scheduled_for, sent, sent_at
-            if sent > 0:  # Se pelo menos uma mensagem foi enviada com sucesso
-                agendamento.sent = True
-                agendamento.sent_at = now_brazil_naive()
-                logger.info(f"✅ Agendamento marcado como enviado (sent={sent}, failed={failed})")
+            if agendamento and sent > 0:  # Se pelo menos uma mensagem foi enviada com sucesso e agendamento existe
+                try:
+                    agendamento.sent = True
+                    agendamento.sent_at = now_brazil_naive()
+                    db.commit()
+                    logger.info(f"✅ Agendamento marcado como enviado (sent={sent}, failed={failed})")
+                except Exception as e:
+                    logger.warning(f"⚠️ Erro ao atualizar agendamento: {e}. Continuando...")
+                    db.rollback()
             
             # Registrar envios no banco e atualizar contatos
             for i, result in enumerate(results):
