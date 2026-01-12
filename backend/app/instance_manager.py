@@ -371,15 +371,6 @@ class InstanceManager:
                             logger.info(f"✅ Instância {instance.name} com estado unknown mas funcionou recentemente (envios hoje: {instance.messages_sent_today}) - marcada como ACTIVE")
                             return True
                         
-                        # Método 3: Verificar se houve envios recentes (últimas 24h)
-                        if instance.messages_sent_today > 0 or (instance.last_message_time and 
-                            (datetime.now() - instance.last_message_time).total_seconds() < 86400):
-                            instance.status = InstanceStatus.ACTIVE
-                            instance.error_count = 0
-                            instance.last_check = datetime.now()
-                            logger.info(f"✅ Instância {instance.name} com estado unknown mas funcionou recentemente (envios hoje: {instance.messages_sent_today}) - marcada como ACTIVE")
-                            return True
-                        
                         # Método 4: Se a instância tem número de telefone, provavelmente está conectada
                         if instance.phone_number:
                             logger.info(f"Instância {instance.name} tem número de telefone ({instance.phone_number}), provavelmente está conectada")
