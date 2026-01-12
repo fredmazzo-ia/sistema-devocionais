@@ -76,27 +76,20 @@ def send_daily_devocional():
             
             logger.info(f"Enviando devocional para {len(contacts_list)} contatos...")
             
-            # Criar registros de agendamento antes de enviar
+            # Criar registro de agendamento antes de enviar
+            # O modelo AgendamentoEnvio só armazena informações básicas do agendamento
             scheduled_time = now_brazil_naive()
-            agendamentos_list = []
-            for contact in contacts:
-                agendamento = AgendamentoEnvio(
-                    devocional_id=devocional_id,
-                    contato_id=contact.id,
-                    scheduled_for=scheduled_time,
-                    recipient_phone=contact.phone,
-                    recipient_name=contact.name,
-                    message_text=message[:500] if message else None,  # Limitar tamanho
-                    status="pending",
-                    agendamento_type="automatico"
-                )
-                db.add(agendamento)
-                agendamentos_list.append(agendamento)
+            agendamento = AgendamentoEnvio(
+                devocional_id=devocional_id,
+                scheduled_for=scheduled_time,
+                sent=False  # Será marcado como True após envio bem-sucedido
+            )
+            db.add(agendamento)
             
-            # Fazer commit dos agendamentos ANTES de enviar
+            # Fazer commit do agendamento ANTES de enviar
             try:
                 db.commit()
-                logger.info(f"✅ {len(agendamentos_list)} agendamentos criados no banco de dados")
+                logger.info(f"✅ Agendamento criado no banco de dados (devocional_id={devocional_id}, scheduled_for={scheduled_time})")
             except Exception as e:
                 logger.error(f"Erro ao salvar agendamentos: {e}", exc_info=True)
                 db.rollback()
@@ -115,21 +108,17 @@ def send_daily_devocional():
             
             logger.info(f"Envio automático concluído: {sent} enviadas, {failed} falharam")
             
-            # Atualizar agendamentos e registrar envios
-            # Usar os agendamentos já criados (não precisa buscar novamente)
+            # Atualizar agendamento após envio
+            # O modelo AgendamentoEnvio só tem campos básicos: devocional_id, scheduled_for, sent, sent_at
+            if sent > 0:  # Se pelo menos uma mensagem foi enviada com sucesso
+                agendamento.sent = True
+                agendamento.sent_at = now_brazil_naive()
+                logger.info(f"✅ Agendamento marcado como enviado (sent={sent}, failed={failed})")
             
             # Registrar envios no banco e atualizar contatos
             for i, result in enumerate(results):
                 if i < len(contacts):
                     contact = contacts[i]
-                    
-                    # Atualizar agendamento correspondente
-                    if i < len(agendamentos_list):
-                        agendamento = agendamentos_list[i]
-                        agendamento.sent_at = result.timestamp if result.timestamp else now_brazil_naive()
-                        agendamento.status = "sent" if result.success else "failed"
-                        agendamento.error_message = result.error[:500] if result.error else None  # Limitar tamanho
-                        agendamento.instance_name = result.instance_name
                     
                     # Registrar envio no banco
                     envio = DevocionalEnvio(
