@@ -530,8 +530,9 @@ class DevocionalServiceV2:
         for i, contact in enumerate(contacts, 1):
             phone = contact.get('phone', '')
             name = contact.get('name')
+            contact_id = contact.get('id')
             
-            logger.info(f"Processando contato {i}/{len(contacts)}: {name or phone}")
+            logger.info(f"Processando contato {i}/{len(contacts)}: {name or phone} (ID: {contact_id})")
             
             # Verificar consentimento ANTES de enviar
             try:

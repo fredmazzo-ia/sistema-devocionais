@@ -109,13 +109,20 @@ async def receive_message_status(
         
         # REGISTRAR WEBHOOK EVENT NA TABELA DE AUDITORIA
         try:
-            key_id = data.get("keyId") or data.get("key", {}).get("id") or body.get("id", "")
-            status_received = data.get("status") or ""
+            # Tratar caso onde data é uma lista (ex: chats.upsert)
+            if isinstance(data, list):
+                # Se for lista, pegar primeiro item ou usar dict vazio
+                data_dict = data[0] if len(data) > 0 and isinstance(data[0], dict) else {}
+            else:
+                data_dict = data if isinstance(data, dict) else {}
+            
+            key_id = data_dict.get("keyId") or data_dict.get("key", {}).get("id") if isinstance(data_dict.get("key"), dict) else data_dict.get("key", {}).get("id") if "key" in data_dict else body.get("id", "")
+            status_received = data_dict.get("status") or ""
             phone = ""
-            if "remoteJid" in data:
-                phone = data.get("remoteJid", "").split("@")[0].split(":")[0]
-            elif "key" in data and "remoteJid" in data.get("key", {}):
-                phone = data.get("key", {}).get("remoteJid", "").split("@")[0].split(":")[0]
+            if "remoteJid" in data_dict:
+                phone = data_dict.get("remoteJid", "").split("@")[0].split(":")[0]
+            elif "key" in data_dict and isinstance(data_dict.get("key"), dict) and "remoteJid" in data_dict.get("key", {}):
+                phone = data_dict.get("key", {}).get("remoteJid", "").split("@")[0].split(":")[0]
             
             webhook_event = WebhookEvent(
                 event_type=event or "unknown",
