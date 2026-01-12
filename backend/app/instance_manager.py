@@ -171,7 +171,16 @@ class InstanceManager:
             return None
         
         # Aplicar estratégia
-        if strategy == "round_robin":
+        if strategy == "contact_id" and contact_id is not None:
+            # Distribuição baseada no ID do contato (round-robin por ID)
+            # ID 1 -> Instância 0, ID 2 -> Instância 1, ID 3 -> Instância 2, etc.
+            # Ordenar instâncias por nome para garantir ordem consistente
+            available.sort(key=lambda x: x.name)
+            instance_index = (contact_id - 1) % len(available)
+            selected = available[instance_index]
+            logger.debug(f"📊 Distribuição por ID: Contato ID {contact_id} -> Instância {selected.name} (índice {instance_index} de {len(available)})")
+            return selected
+        elif strategy == "round_robin":
             # Rotação circular baseada em última mensagem
             available.sort(key=lambda x: x.last_message_time or datetime.min)
             return available[0]
