@@ -219,15 +219,15 @@ export default function Contatos() {
                     {contato.engagement_score !== null && contato.engagement_score !== undefined ? (
                       <span
                         className={`score-badge ${
-                          contato.engagement_score >= 0.7
+                          contato.engagement_score >= 70
                             ? 'score-high'
-                            : contato.engagement_score >= 0.4
+                            : contato.engagement_score >= 40
                             ? 'score-medium'
                             : 'score-low'
                         }`}
-                        title={`Score de engajamento: ${(contato.engagement_score * 100).toFixed(0)}%`}
+                        title={`Score de engajamento: ${contato.engagement_score.toFixed(1)}%`}
                       >
-                        {(contato.engagement_score * 100).toFixed(0)}%
+                        {contato.engagement_score.toFixed(1)}%
                       </span>
                     ) : (
                       <span className="score-badge score-unknown" title="Score não disponível">

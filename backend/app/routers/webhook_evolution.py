@@ -707,11 +707,8 @@ async def process_messages_update(
             logger.warning(f"⚠️ messages.update sem status, ignorando. Data: {data}")
             return {"error": "status não encontrado", "data": data}
         
-        # Extrair telefone do remoteJid (formato: 5516996480805:90@s.whatsapp.net ou 5516996480805@s.whatsapp.net)
-        phone = remote_jid.split("@")[0].split(":")[0] if "@" in remote_jid else remote_jid.split(":")[0]
-        
-        # IMPORTANTE: O message_id que salvamos no banco é o keyId (response_data.get('key', {}).get('id'))
-        # Então devemos buscar pelo keyId primeiro!
+        # IMPORTANTE: Buscar o envio PRIMEIRO pelo message_id (keyId ou messageId)
+        # Depois extrair o telefone do banco, pois o webhook pode não ter remoteJid quando é READ
         envio = None
         
         # Buscar pelo keyId primeiro (este é o que salvamos quando enviamos)
@@ -729,6 +726,26 @@ async def process_messages_update(
             ).first()
             if envio:
                 logger.info(f"✅ Encontrado envio pelo messageId: {message_id_webhook}")
+        
+        # Extrair telefone: PRIMEIRO do banco (mais confiável), depois do webhook
+        phone = None
+        if envio:
+            phone = envio.recipient_phone
+            logger.info(f"📞 Telefone extraído do banco: {phone}")
+        else:
+            # Se não encontrou no banco, tentar extrair do webhook
+            if remote_jid:
+                phone = remote_jid.split("@")[0].split(":")[0] if "@" in remote_jid else remote_jid.split(":")[0]
+                logger.info(f"📞 Telefone extraído do webhook: {phone}")
+        
+        if not phone:
+            logger.error(f"❌ Não foi possível extrair telefone nem do banco nem do webhook. keyId={key_id}, messageId={message_id_webhook}, remoteJid={remote_jid}")
+            return {
+                "error": "Telefone não encontrado",
+                "key_id": key_id,
+                "message_id_webhook": message_id_webhook,
+                "remote_jid": remote_jid
+            }
         
         # Usar keyId como identificador principal para logs
         message_id = key_id or message_id_webhook
