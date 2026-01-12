@@ -28,9 +28,15 @@ class EngagementData:
     engagement_score: float = 0.5  # 0.0 a 1.0
     total_sent: int = 0
     total_responded: int = 0
+    total_read: int = 0  # Total de mensagens lidas
+    total_delivered: int = 0  # Total de mensagens entregues
     last_response_date: Optional[datetime] = None
     last_sent_date: Optional[datetime] = None
+    last_read_date: Optional[datetime] = None  # Última vez que leu
+    last_delivered_date: Optional[datetime] = None  # Última vez que foi entregue
     consecutive_no_response: int = 0
+    consecutive_not_read: int = 0  # Mensagens consecutivas não lidas
+    consecutive_not_delivered: int = 0  # Mensagens consecutivas não entregues
 
 
 @dataclass
@@ -213,7 +219,8 @@ class ShieldService:
         phone: str, 
         responded: bool = False, 
         is_devocional: bool = False,
-        was_read: bool = False
+        was_read: bool = False,
+        was_delivered: bool = False
     ):
         """
         Atualiza score de engajamento de um contato
@@ -223,11 +230,22 @@ class ShieldService:
             responded: Se o contato respondeu (para mensagens interativas)
             is_devocional: Se é um devocional (mensagem unidirecional)
             was_read: Se a mensagem foi visualizada/lida (mais importante para devocionais)
+            was_delivered: Se a mensagem foi entregue
         """
         if phone not in self.engagement_data:
             self.engagement_data[phone] = EngagementData(phone=phone)
         
         data = self.engagement_data[phone]
+        
+        # Garantir que todos os atributos existam (compatibilidade com versões antigas)
+        if not hasattr(data, 'consecutive_not_read'):
+            data.consecutive_not_read = 0
+        if not hasattr(data, 'total_delivered'):
+            data.total_delivered = 0
+        if not hasattr(data, 'last_delivered_date'):
+            data.last_delivered_date = None
+        if not hasattr(data, 'consecutive_not_delivered'):
+            data.consecutive_not_delivered = 0
         data.total_sent += 1
         from app.timezone_utils import now_brazil
         data.last_sent_date = now_brazil()
