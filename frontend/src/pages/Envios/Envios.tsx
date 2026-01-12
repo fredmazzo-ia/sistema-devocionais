@@ -201,13 +201,22 @@ export default function Envios() {
                   <td className="phone-cell">{envio.recipient_phone}</td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span className={`status-badge ${envio.status}`}>
-                        {getStatusIcon(envio.status)}
-                        {getStatusLabel(envio.status)}
-                      </span>
-                      {envio.message_status && envio.message_status !== envio.status && (
-                        <span className={`message-status-badge ${getMessageStatusColor(envio.message_status)}`}>
-                          {getMessageStatusLabel(envio.message_status)}
+                      {envio.message_status === 'read' && envio.read_at ? (
+                        <span className="message-status-badge read">
+                          Lida - {new Date(envio.read_at).toLocaleString('pt-BR')}
+                        </span>
+                      ) : envio.message_status === 'delivered' && envio.delivered_at ? (
+                        <span className="message-status-badge delivered">
+                          Entregue - {new Date(envio.delivered_at).toLocaleString('pt-BR')}
+                        </span>
+                      ) : envio.sent_at ? (
+                        <span className="message-status-badge sent">
+                          Enviada - {new Date(envio.sent_at).toLocaleString('pt-BR')}
+                        </span>
+                      ) : (
+                        <span className={`status-badge ${envio.status}`}>
+                          {getStatusIcon(envio.status)}
+                          {getStatusLabel(envio.status)}
                         </span>
                       )}
                     </div>
