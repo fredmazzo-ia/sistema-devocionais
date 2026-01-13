@@ -519,13 +519,6 @@ async def send_custom_message(
                 if media_base64:
                     logger.info(f"📎 Enviando mídia: tipo={media_type}, mimetype={media_mimetype}, tamanho_base64={len(media_base64)} chars")
                     
-                    # Enviar mídia
-                    url = f"{instance.api_url}/message/sendMedia/{api_instance_name}"
-                    
-                    # Evolution API aceita apenas: image, document, video, audio
-                    # Usar "audio" para áudio (não "ptt")
-                    payload_mediatype = media_type  # Já está correto: "audio", "image" ou "video"
-                    
                     # Evolution API espera base64 direto (string pura, sem prefixo data:)
                     # O base64 já foi limpo na conversão, mas garantir novamente
                     # IMPORTANTE: Enviar apenas a string base64, sem data: prefix
@@ -536,33 +529,31 @@ async def send_custom_message(
                     if not re.match(r'^[A-Za-z0-9+/]*={0,2}$', media_base64_final):
                         logger.error(f"❌ Base64 inválido detectado! Primeiros 100 chars: {media_base64_final[:100]}")
                     
-                    payload = {
-                        "number": phone_clean,
-                        "mediatype": payload_mediatype,
-                        "media": media_base64_final,  # String base64 pura, sem prefixo
-                        "mimetype": media_mimetype,
-                    }
-                    
-                    # Para áudio, adicionar fileName se disponível
-                    if media_type == "audio" and media_file and media_file.filename:
-                        # Atualizar extensão do fileName se foi convertido
-                        if media_mimetype == "audio/amr":
-                            payload["fileName"] = media_file.filename.replace(".ogg", ".amr").replace(".webm", ".amr")
-                        elif media_mimetype == "audio/mpeg":
-                            payload["fileName"] = media_file.filename.replace(".ogg", ".mp3").replace(".webm", ".mp3")
-                        else:
-                            payload["fileName"] = media_file.filename
-                    
-                    # Para áudio, NÃO enviar texto separado - enviar tudo junto
-                    # Se houver mensagem, adicionar como caption (mesmo para áudio)
-                    # Algumas versões da Evolution API podem aceitar caption em áudio
-                    if personalized_message:
-                        if media_type == "audio":
-                            # Tentar enviar texto e áudio juntos primeiro
-                            # Se não funcionar, enviar texto depois
-                            payload["caption"] = personalized_message
-                            logger.info(f"📝 Enviando áudio com caption (texto incluído)")
-                        else:
+                    # Para áudio, usar endpoint específico /message/sendAudio
+                    if media_type == "audio":
+                        url = f"{instance.api_url}/message/sendAudio/{api_instance_name}"
+                        payload = {
+                            "number": phone_clean,
+                            "audio": media_base64_final,  # Campo específico para áudio
+                        }
+                        
+                        # Adicionar delay se configurado
+                        if delay and delay > 0:
+                            payload["delay"] = int(delay * 1000)  # Converter segundos para milissegundos
+                        
+                        logger.info(f"🎵 Usando endpoint específico /sendAudio para áudio")
+                    else:
+                        # Para imagem e vídeo, usar /message/sendMedia
+                        url = f"{instance.api_url}/message/sendMedia/{api_instance_name}"
+                        payload = {
+                            "number": phone_clean,
+                            "mediatype": media_type,  # "image" ou "video"
+                            "media": media_base64_final,
+                            "mimetype": media_mimetype,
+                        }
+                        
+                        # Adicionar caption para imagem/vídeo
+                        if personalized_message:
                             payload["caption"] = personalized_message
                     
                     logger.info(f"📤 Enviando mídia ({media_type}) para {phone}: mediatype={payload_mediatype}, mimetype={media_mimetype}, base64_length={len(media_base64_final)}")
