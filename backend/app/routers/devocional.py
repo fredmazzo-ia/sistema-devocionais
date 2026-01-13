@@ -460,7 +460,8 @@ async def send_custom_message(
                     if personalized_message and media_type != "audio":
                         payload["caption"] = personalized_message
                     
-                    logger.info(f"📤 Enviando mídia ({media_type}) para {phone}: mediatype={payload_mediatype}, mimetype={media_mimetype}")
+                    logger.info(f"📤 Enviando mídia ({media_type}) para {phone}: mediatype={payload_mediatype}, mimetype={media_mimetype}, base64_length={len(media_base64_clean)}")
+                    logger.info(f"   Payload keys: {list(payload.keys())}, fileName={payload.get('fileName', 'N/A')}")
                     response = requests.post(url, json=payload, headers=headers, timeout=60)
                     audio_sent = response.status_code in [200, 201]
                     
@@ -472,9 +473,14 @@ async def send_custom_message(
                         logger.info(f"✅ Mídia ({media_type}) enviada com sucesso para {phone}")
                         try:
                             response_data = response.json()
-                            logger.info(f"   Response data: {str(response_data)[:200]}")
-                        except:
-                            pass
+                            logger.info(f"   Response completa: {response_data}")
+                            # Verificar se há informações sobre o áudio na resposta
+                            if 'message' in response_data and 'audioMessage' in response_data['message']:
+                                audio_msg = response_data['message']['audioMessage']
+                                logger.info(f"   Audio message info: url={audio_msg.get('url', 'N/A')}, mimetype={audio_msg.get('mimetype', 'N/A')}, fileLength={audio_msg.get('fileLength', 'N/A')}")
+                        except Exception as e:
+                            logger.warning(f"   Erro ao processar response: {e}")
+                            logger.info(f"   Response text: {response.text[:500]}")
                     
                     # Se for áudio, considerar sucesso apenas se o áudio foi enviado
                     # Se o texto também foi enviado, ambos devem ter sucesso
