@@ -469,7 +469,7 @@ async def send_custom_message(
                     if personalized_message and media_type != "audio":
                         payload["caption"] = personalized_message
                     
-                    logger.info(f"📤 Enviando mídia ({media_type}) para {phone}: mediatype={payload_mediatype}, mimetype={media_mimetype}, base64_length={len(media_base64_clean)}")
+                    logger.info(f"📤 Enviando mídia ({media_type}) para {phone}: mediatype={payload_mediatype}, mimetype={media_mimetype}, base64_length={len(media_base64_final)}")
                     logger.info(f"   Payload keys: {list(payload.keys())}, fileName={payload.get('fileName', 'N/A')}")
                     response = requests.post(url, json=payload, headers=headers, timeout=60)
                     audio_sent = response.status_code in [200, 201]
