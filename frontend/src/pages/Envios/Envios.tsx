@@ -3,6 +3,7 @@ import { envioApi } from '../../services/api'
 import type { Envio } from '../../types'
 import { Send, CheckCircle, XCircle, Clock, Search, Filter } from 'lucide-react'
 import './Envios.css'
+import './Envios-responsive-fix.css'
 
 export default function Envios() {
   const [envios, setEnvios] = useState<Envio[]>([])

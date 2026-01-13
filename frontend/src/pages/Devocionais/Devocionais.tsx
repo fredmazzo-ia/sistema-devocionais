@@ -3,6 +3,7 @@ import { devocionalApi } from '../../services/api'
 import type { Devocional } from '../../types'
 import { BookOpen, Calendar, Search, Eye } from 'lucide-react'
 import './Devocionais.css'
+import './Devocionais-responsive-fix.css'
 
 export default function Devocionais() {
   const [devocionais, setDevocionais] = useState<Devocional[]>([])
