@@ -154,6 +154,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 24px;
+  width: 100%;
+}
+
+.disparador-grid > * {
+  min-width: 0; /* Permite que os cards encolham */
 }
 
 /* Config Cards */
@@ -164,6 +169,8 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   border: 2px solid transparent;
+  overflow: hidden; /* Previne que conteúdo escape */
+  min-width: 0; /* Permite que o card encolha */
 }
 
 .config-card:hover {
@@ -308,14 +315,58 @@
   color: #374151;
 }
 
-.info-icon {
-  color: #9ca3b8;
+.config-label > span:last-child {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   cursor: help;
-  transition: color 0.2s;
 }
 
-.info-icon:hover {
+.info-icon {
+  color: #9ca3b8;
+  transition: color 0.2s;
+  pointer-events: none;
+}
+
+.config-label > span:last-child:hover .info-icon {
   color: #3b82f6;
+}
+
+/* Tooltip customizado */
+.config-label > span[title] {
+  position: relative;
+}
+
+.config-label > span[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: #1f2937;
+  color: white;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.config-label > span[title]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 2px;
+  border: 5px solid transparent;
+  border-top-color: #1f2937;
+  z-index: 1000;
+  pointer-events: none;
 }
 
 /* Slider */
@@ -323,15 +374,19 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .slider-container input[type="range"] {
   flex: 1;
+  min-width: 0;
   height: 6px;
   border-radius: 3px;
   background: #e5e7eb;
   outline: none;
   -webkit-appearance: none;
+  width: 100%;
 }
 
 .slider-container input[type="range"]::-webkit-slider-thumb {
@@ -380,15 +435,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  min-width: 0; /* Permite que o input encolha */
 }
 
 .input-group input {
   flex: 1;
+  min-width: 0; /* Permite que o input encolha */
   padding: 10px 14px;
   border: 1px solid #d1d5db;
   border-radius: 8px;
   font-size: 14px;
   transition: all 0.2s;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .input-group input:focus {
@@ -402,12 +462,18 @@
   color: #6b7280;
   font-weight: 500;
   white-space: nowrap;
+  flex-shrink: 0; /* Não encolhe */
 }
 
 .config-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+  width: 100%;
+}
+
+.config-row .config-item {
+  min-width: 0; /* Permite que os itens encolham */
 }
 
 /* Time Input */
@@ -490,6 +556,58 @@
   margin-left: auto;
 }
 
+.checkbox-item > span[title] {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.checkbox-item > span[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: #1f2937;
+  color: white;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.checkbox-item > span[title]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  right: 12px;
+  margin-bottom: 2px;
+  border: 5px solid transparent;
+  border-top-color: #1f2937;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* Garantir que todos os elementos fiquem dentro dos cards */
+.config-item,
+.config-row,
+.slider-container,
+.input-group {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.config-item input,
+.config-item select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .disparador-grid {
@@ -513,5 +631,13 @@
 
   .toast {
     min-width: auto;
+  }
+
+  .config-label > span[title]:hover::after {
+    white-space: normal;
+    max-width: 200px;
+    right: 0;
+    left: auto;
+    transform: none;
   }
 }
