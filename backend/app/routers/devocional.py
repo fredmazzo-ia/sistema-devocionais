@@ -341,8 +341,15 @@ async def send_custom_message(
                 if 'mp3' in content_type or 'mpeg' in content_type or 'mp3' in filename:
                     media_mimetype = 'audio/mpeg'  # MP3 - mais compatível
                 elif 'ogg' in content_type or 'opus' in content_type or 'ogg' in filename or 'opus' in filename:
-                    # OGG/Opus: usar mimetype simples sem codecs
-                    media_mimetype = 'audio/ogg'  # Sem codecs para melhor compatibilidade
+                    # OGG/Opus: Se for gravado no navegador (contém "audio-" no nome), tentar como MP3
+                    # Se for do ElevenLabs (nome diferente), usar OGG
+                    if 'audio-' in filename and filename.startswith('audio-'):
+                        # Áudio gravado no navegador - tentar como MP3 para melhor compatibilidade
+                        logger.info(f"⚠️ Áudio gravado no navegador detectado, tentando como MP3 para melhor compatibilidade")
+                        media_mimetype = 'audio/mpeg'  # Forçar MP3 para áudios gravados
+                    else:
+                        # Áudio do ElevenLabs ou outro - usar OGG
+                        media_mimetype = 'audio/ogg'  # Sem codecs para melhor compatibilidade
                 elif 'mp4' in content_type or 'mp4' in filename or 'm4a' in filename:
                     media_mimetype = 'audio/mp4'
                 elif 'amr' in content_type or 'amr' in filename:
