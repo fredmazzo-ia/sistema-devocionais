@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { configApi } from '../../services/api'
-import { Settings, Save, RefreshCw, Clock, Shield, AlertCircle } from 'lucide-react'
+import { 
+  Send, RefreshCw, Shield, Clock, Zap, AlertCircle, 
+  Info, CheckCircle, Save, TrendingUp, Activity, 
+  Timer, Repeat, Target
+} from 'lucide-react'
 import './Configuracoes.css'
 
 interface ConfigData {
@@ -26,12 +30,17 @@ interface ConfigData {
   }
 }
 
+interface Toast {
+  id: number
+  message: string
+  type: 'success' | 'error' | 'info'
+}
+
 export default function Configuracoes() {
   const [config, setConfig] = useState<ConfigData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [saving, setSaving] = useState<Record<string, boolean>>({})
+  const [toasts, setToasts] = useState<Toast[]>([])
 
   useEffect(() => {
     loadConfig()
@@ -42,71 +51,55 @@ export default function Configuracoes() {
       setLoading(true)
       const data = await configApi.get()
       setConfig(data)
-      setError(null)
     } catch (err: any) {
-      setError(err.message || 'Erro ao carregar configurações')
+      showToast('Erro ao carregar configurações', 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSaveShield = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Date.now()
+    setToasts((prev) => [...prev, { id, message, type }])
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id))
+    }, 4000)
+  }
+
+  const handleSave = async (section: 'shield' | 'rate_limit' | 'schedule', data: any) => {
     if (!config) return
 
-    setSaving(true)
-    setError(null)
-    setSuccess(null)
-
+    setSaving((prev) => ({ ...prev, [section]: true }))
     try {
-      await configApi.updateShield(config.shield)
-      setSuccess('Configurações de blindagem atualizadas! Reinicie a aplicação para aplicar.')
+      if (section === 'shield') {
+        await configApi.updateShield(data)
+      } else if (section === 'rate_limit') {
+        await configApi.updateRateLimit(data)
+      } else if (section === 'schedule') {
+        await configApi.updateSchedule(data)
+      }
+      showToast('Configuração salva com sucesso!', 'success')
     } catch (err: any) {
-      setError(err.message || 'Erro ao salvar configurações de blindagem')
+      showToast(err.response?.data?.detail || 'Erro ao salvar configuração', 'error')
     } finally {
-      setSaving(false)
+      setSaving((prev) => ({ ...prev, [section]: false }))
     }
   }
 
-  const handleSaveRateLimit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const updateConfig = (section: keyof ConfigData, field: string, value: any) => {
     if (!config) return
-
-    setSaving(true)
-    setError(null)
-    setSuccess(null)
-
-    try {
-      await configApi.updateRateLimit(config.rate_limit)
-      setSuccess('Configurações de rate limiting atualizadas! Reinicie a aplicação para aplicar.')
-    } catch (err: any) {
-      setError(err.message || 'Erro ao salvar configurações de rate limiting')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleSaveSchedule = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!config) return
-
-    setSaving(true)
-    setError(null)
-    setSuccess(null)
-
-    try {
-      await configApi.updateSchedule({ send_time: config.schedule.send_time })
-      setSuccess('Horário de envio atualizado! Reinicie a aplicação para aplicar.')
-    } catch (err: any) {
-      setError(err.message || 'Erro ao salvar horário de envio')
-    } finally {
-      setSaving(false)
-    }
+    setConfig({
+      ...config,
+      [section]: {
+        ...config[section],
+        [field]: value,
+      },
+    })
   }
 
   if (loading) {
     return (
-      <div className="configuracoes-loading">
+      <div className="disparador-loading">
         <div className="spinner"></div>
         <p>Carregando configurações...</p>
       </div>
@@ -115,346 +108,332 @@ export default function Configuracoes() {
 
   if (!config) {
     return (
-      <div className="error-message">
+      <div className="disparador-error">
+        <AlertCircle size={24} />
         <p>Erro ao carregar configurações</p>
-        <button onClick={loadConfig}>Tentar novamente</button>
+        <button onClick={loadConfig} className="btn-primary">
+          <RefreshCw size={18} />
+          Tentar novamente
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="configuracoes-page">
-      <div className="configuracoes-header">
-        <Settings size={24} />
-        <h2>Configurações</h2>
+    <div className="disparador-page">
+      {/* Header */}
+      <div className="disparador-header">
+        <div className="header-title">
+          <Send size={28} />
+          <div>
+            <h1>Disparador</h1>
+            <p>Configure como suas mensagens serão enviadas</p>
+          </div>
+        </div>
         <button className="btn-refresh" onClick={loadConfig}>
           <RefreshCw size={18} />
           <span>Atualizar</span>
         </button>
       </div>
 
-      {error && (
-        <div className="alert alert-error">
-          <AlertCircle size={18} />
-          <p>{error}</p>
-        </div>
-      )}
+      {/* Toasts */}
+      <div className="toasts-container">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`toast toast-${toast.type}`}>
+            {toast.type === 'success' && <CheckCircle size={18} />}
+            {toast.type === 'error' && <AlertCircle size={18} />}
+            {toast.type === 'info' && <Info size={18} />}
+            <span>{toast.message}</span>
+          </div>
+        ))}
+      </div>
 
-      {success && (
-        <div className="alert alert-success">
-          <p>{success}</p>
-        </div>
-      )}
-
-      <div className="configuracoes-content">
-        {/* Blindagem */}
-        <section className="config-section">
-          <form onSubmit={handleSaveShield}>
-            <div className="section-header">
-              <Shield size={20} />
-              <h3>Blindagem Anti-Bloqueio</h3>
+      {/* Config Cards */}
+      <div className="disparador-grid">
+        {/* Blindagem Anti-Bloqueio */}
+        <div className="config-card shield-card">
+          <div className="card-header">
+            <div className="card-icon shield-icon">
+              <Shield size={24} />
             </div>
-            <div className="section-content">
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.shield.enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          shield: { ...config.shield, enabled: e.target.checked },
-                        })
-                      }
-                    />
-                    <span>Blindagem Ativada</span>
-                  </label>
-                </div>
+            <div className="card-title">
+              <h3>Blindagem Anti-Bloqueio</h3>
+              <p>Proteja sua conta de bloqueios</p>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={config.shield.enabled}
+                onChange={(e) => {
+                  updateConfig('shield', 'enabled', e.target.checked)
+                  handleSave('shield', { ...config.shield, enabled: e.target.checked })
+                }}
+              />
+              <span className="toggle-slider"></span>
+            </label>
+          </div>
 
-                <div className="form-group">
-                  <label>Variação de Delay (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={config.shield.delay_variation}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        shield: {
-                          ...config.shield,
-                          delay_variation: parseFloat(e.target.value),
-                        },
-                      })
-                    }
-                  />
-                </div>
+          <div className="card-content">
+            <div className="config-item">
+              <div className="config-label">
+                <span>Variação de Delay</span>
+                <Info size={14} className="info-icon" title="Varia o tempo entre mensagens para parecer mais natural" />
+              </div>
+              <div className="slider-container">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={config.shield.delay_variation}
+                  onChange={(e) => updateConfig('shield', 'delay_variation', parseFloat(e.target.value))}
+                  onMouseUp={() => handleSave('shield', config.shield)}
+                />
+                <span className="slider-value">{Math.round(config.shield.delay_variation * 100)}%</span>
+              </div>
+            </div>
 
-                <div className="form-group">
-                  <label>Intervalo entre Pausas (mensagens)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={config.shield.break_interval}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        shield: {
-                          ...config.shield,
-                          break_interval: parseInt(e.target.value),
-                        },
-                      })
-                    }
-                  />
-                </div>
+            <div className="config-item">
+              <div className="config-label">
+                <span>Pausa a cada</span>
+                <Info size={14} className="info-icon" title="Quantas mensagens enviar antes de fazer uma pausa" />
+              </div>
+              <div className="input-group">
+                <input
+                  type="number"
+                  min="1"
+                  value={config.shield.break_interval}
+                  onChange={(e) => updateConfig('shield', 'break_interval', parseInt(e.target.value))}
+                  onBlur={() => handleSave('shield', config.shield)}
+                />
+                <span className="input-suffix">mensagens</span>
+              </div>
+            </div>
 
-                <div className="form-group">
-                  <label>Duração Mínima da Pausa (segundos)</label>
+            <div className="config-row">
+              <div className="config-item">
+                <div className="config-label">
+                  <span>Pausa Mínima</span>
+                  <Info size={14} className="info-icon" title="Tempo mínimo de pausa em segundos" />
+                </div>
+                <div className="input-group">
                   <input
                     type="number"
                     min="0"
                     step="0.1"
                     value={config.shield.break_duration_min}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        shield: {
-                          ...config.shield,
-                          break_duration_min: parseFloat(e.target.value),
-                        },
-                      })
-                    }
+                    onChange={(e) => updateConfig('shield', 'break_duration_min', parseFloat(e.target.value))}
+                    onBlur={() => handleSave('shield', config.shield)}
                   />
+                  <span className="input-suffix">seg</span>
                 </div>
+              </div>
 
-                <div className="form-group">
-                  <label>Duração Máxima da Pausa (segundos)</label>
+              <div className="config-item">
+                <div className="config-label">
+                  <span>Pausa Máxima</span>
+                  <Info size={14} className="info-icon" title="Tempo máximo de pausa em segundos" />
+                </div>
+                <div className="input-group">
                   <input
                     type="number"
                     min="0"
                     step="0.1"
                     value={config.shield.break_duration_max}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        shield: {
-                          ...config.shield,
-                          break_duration_max: parseFloat(e.target.value),
-                        },
-                      })
-                    }
+                    onChange={(e) => updateConfig('shield', 'break_duration_max', parseFloat(e.target.value))}
+                    onBlur={() => handleSave('shield', config.shield)}
                   />
-                </div>
-
-                <div className="form-group">
-                  <label>Score Mínimo de Engajamento</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={config.shield.min_engagement_score}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        shield: {
-                          ...config.shield,
-                          min_engagement_score: parseFloat(e.target.value),
-                        },
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.shield.adaptive_limits_enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          shield: {
-                            ...config.shield,
-                            adaptive_limits_enabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    <span>Limites Adaptativos</span>
-                  </label>
-                </div>
-
-                <div className="form-group">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={config.shield.block_detection_enabled}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          shield: {
-                            ...config.shield,
-                            block_detection_enabled: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    <span>Detecção de Bloqueios</span>
-                  </label>
+                  <span className="input-suffix">seg</span>
                 </div>
               </div>
-
-              <button type="submit" className="btn-save" disabled={saving}>
-                <Save size={18} />
-                <span>{saving ? 'Salvando...' : 'Salvar Blindagem'}</span>
-              </button>
             </div>
-          </form>
-        </section>
+
+            <div className="config-item">
+              <div className="config-label">
+                <span>Score Mínimo de Engajamento</span>
+                <Info size={14} className="info-icon" title="Apenas contatos com este score mínimo receberão mensagens" />
+              </div>
+              <div className="slider-container">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={config.shield.min_engagement_score}
+                  onChange={(e) => updateConfig('shield', 'min_engagement_score', parseFloat(e.target.value))}
+                  onMouseUp={() => handleSave('shield', config.shield)}
+                />
+                <span className="slider-value">{Math.round(config.shield.min_engagement_score * 100)}%</span>
+              </div>
+            </div>
+
+            <div className="config-checkboxes">
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={config.shield.adaptive_limits_enabled}
+                  onChange={(e) => {
+                    updateConfig('shield', 'adaptive_limits_enabled', e.target.checked)
+                    handleSave('shield', { ...config.shield, adaptive_limits_enabled: e.target.checked })
+                  }}
+                />
+                <span>Limites Adaptativos</span>
+                <Info size={14} className="info-icon" title="Ajusta automaticamente os limites baseado no comportamento" />
+              </label>
+
+              <label className="checkbox-item">
+                <input
+                  type="checkbox"
+                  checked={config.shield.block_detection_enabled}
+                  onChange={(e) => {
+                    updateConfig('shield', 'block_detection_enabled', e.target.checked)
+                    handleSave('shield', { ...config.shield, block_detection_enabled: e.target.checked })
+                  }}
+                />
+                <span>Detecção de Bloqueios</span>
+                <Info size={14} className="info-icon" title="Detecta quando você foi bloqueado e pausa os envios" />
+              </label>
+            </div>
+          </div>
+        </div>
 
         {/* Rate Limiting */}
-        <section className="config-section">
-          <form onSubmit={handleSaveRateLimit}>
-            <div className="section-header">
-              <Shield size={20} />
-              <h3>Rate Limiting</h3>
+        <div className="config-card rate-card">
+          <div className="card-header">
+            <div className="card-icon rate-icon">
+              <Zap size={24} />
             </div>
-            <div className="section-content">
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Delay entre Mensagens (segundos)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.1"
-                    value={config.rate_limit.delay_between_messages}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        rate_limit: {
-                          ...config.rate_limit,
-                          delay_between_messages: parseFloat(e.target.value),
-                        },
-                      })
-                    }
-                  />
-                </div>
+            <div className="card-title">
+              <h3>Velocidade de Envio</h3>
+              <p>Controle a frequência das mensagens</p>
+            </div>
+          </div>
 
-                <div className="form-group">
-                  <label>Máximo de Mensagens por Hora</label>
+          <div className="card-content">
+            <div className="config-item">
+              <div className="config-label">
+                <span>Delay entre Mensagens</span>
+                <Info size={14} className="info-icon" title="Tempo de espera entre cada mensagem enviada" />
+              </div>
+              <div className="input-group">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={config.rate_limit.delay_between_messages}
+                  onChange={(e) => updateConfig('rate_limit', 'delay_between_messages', parseFloat(e.target.value))}
+                  onBlur={() => handleSave('rate_limit', config.rate_limit)}
+                />
+                <span className="input-suffix">segundos</span>
+              </div>
+            </div>
+
+            <div className="config-row">
+              <div className="config-item">
+                <div className="config-label">
+                  <span>Máx. por Hora</span>
+                  <Info size={14} className="info-icon" title="Número máximo de mensagens que podem ser enviadas em uma hora" />
+                </div>
+                <div className="input-group">
                   <input
                     type="number"
                     min="1"
                     value={config.rate_limit.max_messages_per_hour}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        rate_limit: {
-                          ...config.rate_limit,
-                          max_messages_per_hour: parseInt(e.target.value),
-                        },
-                      })
-                    }
+                    onChange={(e) => updateConfig('rate_limit', 'max_messages_per_hour', parseInt(e.target.value))}
+                    onBlur={() => handleSave('rate_limit', config.rate_limit)}
                   />
+                  <span className="input-suffix">msg/h</span>
                 </div>
+              </div>
 
-                <div className="form-group">
-                  <label>Máximo de Mensagens por Dia</label>
+              <div className="config-item">
+                <div className="config-label">
+                  <span>Máx. por Dia</span>
+                  <Info size={14} className="info-icon" title="Número máximo de mensagens que podem ser enviadas em um dia" />
+                </div>
+                <div className="input-group">
                   <input
                     type="number"
                     min="1"
                     value={config.rate_limit.max_messages_per_day}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        rate_limit: {
-                          ...config.rate_limit,
-                          max_messages_per_day: parseInt(e.target.value),
-                        },
-                      })
-                    }
+                    onChange={(e) => updateConfig('rate_limit', 'max_messages_per_day', parseInt(e.target.value))}
+                    onBlur={() => handleSave('rate_limit', config.rate_limit)}
                   />
+                  <span className="input-suffix">msg/dia</span>
                 </div>
+              </div>
+            </div>
 
-                <div className="form-group">
-                  <label>Máximo de Tentativas (Retry)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={config.rate_limit.max_retries}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          rate_limit: {
-                            ...config.rate_limit,
-                            max_retries: parseInt(e.target.value),
-                          },
-                        })
-                      }
-                    />
+            <div className="config-row">
+              <div className="config-item">
+                <div className="config-label">
+                  <span>Máx. Tentativas</span>
+                  <Info size={14} className="info-icon" title="Quantas vezes tentar reenviar uma mensagem que falhou" />
                 </div>
+                <div className="input-group">
+                  <input
+                    type="number"
+                    min="0"
+                    value={config.rate_limit.max_retries}
+                    onChange={(e) => updateConfig('rate_limit', 'max_retries', parseInt(e.target.value))}
+                    onBlur={() => handleSave('rate_limit', config.rate_limit)}
+                  />
+                  <span className="input-suffix">tentativas</span>
+                </div>
+              </div>
 
-                <div className="form-group">
-                  <label>Delay entre Tentativas (segundos)</label>
+              <div className="config-item">
+                <div className="config-label">
+                  <span>Delay entre Tentativas</span>
+                  <Info size={14} className="info-icon" title="Tempo de espera antes de tentar reenviar" />
+                </div>
+                <div className="input-group">
                   <input
                     type="number"
                     min="0"
                     step="0.1"
                     value={config.rate_limit.retry_delay}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        rate_limit: {
-                          ...config.rate_limit,
-                          retry_delay: parseFloat(e.target.value),
-                        },
-                      })
-                    }
+                    onChange={(e) => updateConfig('rate_limit', 'retry_delay', parseFloat(e.target.value))}
+                    onBlur={() => handleSave('rate_limit', config.rate_limit)}
                   />
+                  <span className="input-suffix">segundos</span>
                 </div>
               </div>
-
-              <button type="submit" className="btn-save" disabled={saving}>
-                <Save size={18} />
-                <span>{saving ? 'Salvando...' : 'Salvar Rate Limiting'}</span>
-              </button>
             </div>
-          </form>
-        </section>
+          </div>
+        </div>
 
         {/* Agendamento */}
-        <section className="config-section">
-          <form onSubmit={handleSaveSchedule}>
-            <div className="section-header">
-              <Clock size={20} />
-              <h3>Agendamento</h3>
+        <div className="config-card schedule-card">
+          <div className="card-header">
+            <div className="card-icon schedule-icon">
+              <Clock size={24} />
             </div>
-            <div className="section-content">
-              <div className="form-group">
-                <label>Horário de Envio Automático (HH:MM)</label>
+            <div className="card-title">
+              <h3>Agendamento Automático</h3>
+              <p>Configure o horário de envio diário</p>
+            </div>
+          </div>
+
+          <div className="card-content">
+            <div className="config-item large">
+              <div className="config-label">
+                <span>Horário de Envio</span>
+                <Info size={14} className="info-icon" title="O devocional será enviado automaticamente neste horário todos os dias" />
+              </div>
+              <div className="time-input-container">
+                <Clock size={20} />
                 <input
                   type="time"
                   value={config.schedule.send_time}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      schedule: { ...config.schedule, send_time: e.target.value },
-                    })
-                  }
+                  onChange={(e) => updateConfig('schedule', 'send_time', e.target.value)}
+                  onBlur={() => handleSave('schedule', config.schedule)}
                 />
-                <small>Horário em que o devocional será enviado automaticamente todos os dias</small>
               </div>
-
-              <button type="submit" className="btn-save" disabled={saving}>
-                <Save size={18} />
-                <span>{saving ? 'Salvando...' : 'Salvar Horário'}</span>
-              </button>
+              <p className="config-hint">O sistema enviará automaticamente todos os dias neste horário</p>
             </div>
-          </form>
-        </section>
+          </div>
+        </div>
       </div>
     </div>
   )
