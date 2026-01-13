@@ -251,3 +251,89 @@
   cursor: pointer;
 }
 
+/* Responsive Mobile */
+@media (max-width: 768px) {
+  .envios-page {
+    padding: 16px 8px;
+  }
+
+  .envios-header {
+    margin-bottom: 16px;
+  }
+
+  .header-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    padding: 12px;
+  }
+
+  .stat-card .stat-value {
+    font-size: 20px;
+  }
+
+  .header-filters {
+    flex-direction: column;
+  }
+
+  .search-box,
+  .filter-box {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .envios-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -8px;
+    padding: 0 8px;
+  }
+
+  .envios-table {
+    min-width: 900px;
+    font-size: 13px;
+  }
+
+  .envios-table th,
+  .envios-table td {
+    padding: 10px 8px;
+  }
+
+  .envios-table th:first-child,
+  .envios-table td:first-child {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 10;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .date-cell {
+    font-size: 11px;
+  }
+
+  .error-cell {
+    max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .envios-page {
+    padding: 12px 4px;
+  }
+
+  .header-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .envios-table {
+    font-size: 12px;
+  }
+
+  .envios-table th,
+  .envios-table td {
+    padding: 8px 6px;
+  }
+}

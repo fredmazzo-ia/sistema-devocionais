@@ -650,12 +650,13 @@ class DevocionalServiceV2:
                         ).first()
                         
                         if db_contact:
-                            # Se total_sent == 0, acabou de enviar o primeiro (momento certo para consentimento)
-                            current_total_sent = db_contact.total_sent or 0
+                            # Se total_sent == 0 ou None, acabou de enviar o primeiro (momento certo para consentimento)
+                            # IMPORTANTE: Verificar ANTES do router incrementar total_sent
+                            current_total_sent = db_contact.total_sent if db_contact.total_sent is not None else 0
                             logger.info(f"📊 Contato {phone}: total_sent={current_total_sent} (verificando se deve enviar consentimento)")
                             
                             # Só processar consentimento se SEND_CONTACT_REQUEST estiver habilitado
-                            # IMPORTANTE: Verificar ANTES do router incrementar total_sent
+                            # Verificar se é o primeiro envio (total_sent == 0 ou None)
                             if current_total_sent == 0:
                                 logger.info(f"✅ Contato {phone} tem total_sent=0, deve enviar consentimento")
                                 try:

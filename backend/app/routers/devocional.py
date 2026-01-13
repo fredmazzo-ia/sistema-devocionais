@@ -170,7 +170,8 @@ async def send_devocional(
                 status=result.status.value,
                 message_id=result.message_id,
                 error_message=result.error,
-                retry_count=result.retry_count
+                retry_count=result.retry_count,
+                message_type="devocional_manual"
             )
             db.add(envio)
             
@@ -649,7 +650,8 @@ async def send_custom_message(
                     status=result_data["status"],
                     message_id=result_data.get("message_id"),
                     error_message=result_data.get("error"),
-                    retry_count=0
+                    retry_count=0,
+                    message_type="mensagem_personalizada"
                 )
                 db.add(envio)
                 

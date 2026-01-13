@@ -165,7 +165,8 @@ def send_daily_devocional():
                         message_id=result.message_id,
                         error_message=result.error,
                         retry_count=result.retry_count,
-                        instance_name=result.instance_name
+                        instance_name=result.instance_name,
+                        message_type="devocional_agendado"
                     )
                     db.add(envio)
                     
