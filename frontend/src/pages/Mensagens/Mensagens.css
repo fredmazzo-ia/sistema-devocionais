@@ -22,15 +22,18 @@
 
 .header-title h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
   font-weight: 700;
   color: #1f2937;
+  line-height: 1.2;
+  word-wrap: break-word;
 }
 
 .header-title p {
   margin: 4px 0 0 0;
-  font-size: 14px;
+  font-size: clamp(0.8125rem, 2.5vw, 0.875rem);
   color: #6b7280;
+  word-wrap: break-word;
 }
 
 .alert {
@@ -105,10 +108,11 @@
 
 .card-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: clamp(0.9375rem, 3vw, 1.125rem);
   font-weight: 600;
   color: #1f2937;
   flex: 1;
+  word-wrap: break-word;
 }
 
 .card-content {
@@ -120,15 +124,16 @@
 /* Message Input */
 .message-input {
   width: 100%;
-  padding: 16px;
+  padding: clamp(0.75rem, 2vw, 1rem);
   border: 2px solid #e5e7eb;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
   font-family: inherit;
   resize: vertical;
-  min-height: 120px;
+  min-height: clamp(100px, 25vh, 120px);
   transition: all 0.2s;
   box-sizing: border-box;
+  word-wrap: break-word;
 }
 
 .message-input:focus {
@@ -257,16 +262,18 @@
   justify-content: center;
   gap: 10px;
   width: 100%;
-  padding: 14px 20px;
+  padding: clamp(0.75rem, 2vw, 0.875rem) clamp(1rem, 3vw, 1.25rem);
   background: linear-gradient(135deg, #10b981, #059669);
   color: white;
   border: none;
   border-radius: 10px;
-  font-size: 15px;
+  font-size: clamp(0.875rem, 2.5vw, 0.9375rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+  min-height: clamp(44px, 6vw, 48px);
+  word-wrap: break-word;
 }
 
 .btn-record:hover {
@@ -554,16 +561,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 32px;
+  padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 2rem);
   background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
   border: none;
   border-radius: 12px;
-  font-size: 16px;
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  min-height: clamp(44px, 6vw, 48px);
+  word-wrap: break-word;
 }
 
 .btn-send:hover:not(:disabled) {

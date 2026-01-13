@@ -383,12 +383,27 @@ async def send_custom_message(
                 api_instance_name = getattr(instance, 'api_instance_name', None) or instance.name
                 
                 # Enviar com ou sem mídia
+                audio_sent = False
+                text_sent = False
+                error_msg = None
+                
                 if media_base64:
+                    # Para áudio, enviar mensagem de texto primeiro (se houver)
+                    if personalized_message and media_type == "audio":
+                        text_url = f"{instance.api_url}/message/sendText/{api_instance_name}"
+                        text_payload = {
+                            "number": phone_clean,
+                            "text": personalized_message
+                        }
+                        text_response = requests.post(text_url, json=text_payload, headers=headers, timeout=30)
+                        text_sent = text_response.status_code in [200, 201]
+                        if not text_sent:
+                            logger.warning(f"Falha ao enviar texto antes do áudio para {phone}: {text_response.text[:200]}")
+                    
                     # Enviar mídia
                     url = f"{instance.api_url}/message/sendMedia/{api_instance_name}"
                     
                     # Para áudio, usar mediatype "ptt" (push-to-talk) que é o formato de áudio do WhatsApp
-                    # ou "audio" dependendo da versão da Evolution API
                     payload_mediatype = "ptt" if media_type == "audio" else media_type
                     
                     payload = {
@@ -399,18 +414,27 @@ async def send_custom_message(
                     }
                     
                     # Adicionar caption apenas se houver mensagem e não for áudio
-                    # (áudios geralmente não têm caption no WhatsApp)
                     if personalized_message and media_type != "audio":
                         payload["caption"] = personalized_message
-                    elif personalized_message and media_type == "audio":
-                        # Para áudio, enviar mensagem de texto separada antes do áudio
-                        text_url = f"{instance.api_url}/message/sendText/{api_instance_name}"
-                        text_payload = {
-                            "number": phone_clean,
-                            "text": personalized_message
-                        }
-                        # Enviar texto primeiro
-                        requests.post(text_url, json=text_payload, headers=headers, timeout=30)
+                    
+                    response = requests.post(url, json=payload, headers=headers, timeout=60)
+                    audio_sent = response.status_code in [200, 201]
+                    
+                    if not audio_sent:
+                        error_msg = response.text[:200] if response.text else f"HTTP {response.status_code}"
+                        logger.error(f"Falha ao enviar mídia ({media_type}) para {phone}: {error_msg}")
+                    
+                    # Se for áudio, considerar sucesso apenas se o áudio foi enviado
+                    # Se o texto também foi enviado, ambos devem ter sucesso
+                    if media_type == "audio":
+                        if personalized_message:
+                            success = text_sent and audio_sent
+                            if not success:
+                                error_msg = f"Texto: {'OK' if text_sent else 'Falhou'}, Áudio: {'OK' if audio_sent else 'Falhou'}"
+                        else:
+                            success = audio_sent
+                    else:
+                        success = audio_sent
                 else:
                     # Enviar apenas texto
                     url = f"{instance.api_url}/message/sendText/{api_instance_name}"
@@ -418,16 +442,19 @@ async def send_custom_message(
                         "number": phone_clean,
                         "text": personalized_message
                     }
+                    
+                    response = requests.post(url, json=payload, headers=headers, timeout=60)
+                    success = response.status_code in [200, 201]
+                    text_sent = success
+                    if not success:
+                        error_msg = response.text[:200] if response.text else f"HTTP {response.status_code}"
                 
-                response = requests.post(url, json=payload, headers=headers, timeout=60)
-                
-                success = response.status_code in [200, 201]
                 result_data = {
                     "phone": phone,
                     "name": name,
                     "success": success,
                     "status": "sent" if success else "failed",
-                    "error": None if success else response.text[:200],
+                    "error": error_msg,
                     "message_id": None
                 }
                 
@@ -1082,12 +1109,27 @@ async def send_custom_message(
                 api_instance_name = getattr(instance, 'api_instance_name', None) or instance.name
                 
                 # Enviar com ou sem mídia
+                audio_sent = False
+                text_sent = False
+                error_msg = None
+                
                 if media_base64:
+                    # Para áudio, enviar mensagem de texto primeiro (se houver)
+                    if personalized_message and media_type == "audio":
+                        text_url = f"{instance.api_url}/message/sendText/{api_instance_name}"
+                        text_payload = {
+                            "number": phone_clean,
+                            "text": personalized_message
+                        }
+                        text_response = requests.post(text_url, json=text_payload, headers=headers, timeout=30)
+                        text_sent = text_response.status_code in [200, 201]
+                        if not text_sent:
+                            logger.warning(f"Falha ao enviar texto antes do áudio para {phone}: {text_response.text[:200]}")
+                    
                     # Enviar mídia
                     url = f"{instance.api_url}/message/sendMedia/{api_instance_name}"
                     
                     # Para áudio, usar mediatype "ptt" (push-to-talk) que é o formato de áudio do WhatsApp
-                    # ou "audio" dependendo da versão da Evolution API
                     payload_mediatype = "ptt" if media_type == "audio" else media_type
                     
                     payload = {
@@ -1098,18 +1140,27 @@ async def send_custom_message(
                     }
                     
                     # Adicionar caption apenas se houver mensagem e não for áudio
-                    # (áudios geralmente não têm caption no WhatsApp)
                     if personalized_message and media_type != "audio":
                         payload["caption"] = personalized_message
-                    elif personalized_message and media_type == "audio":
-                        # Para áudio, enviar mensagem de texto separada antes do áudio
-                        text_url = f"{instance.api_url}/message/sendText/{api_instance_name}"
-                        text_payload = {
-                            "number": phone_clean,
-                            "text": personalized_message
-                        }
-                        # Enviar texto primeiro
-                        requests.post(text_url, json=text_payload, headers=headers, timeout=30)
+                    
+                    response = requests.post(url, json=payload, headers=headers, timeout=60)
+                    audio_sent = response.status_code in [200, 201]
+                    
+                    if not audio_sent:
+                        error_msg = response.text[:200] if response.text else f"HTTP {response.status_code}"
+                        logger.error(f"Falha ao enviar mídia ({media_type}) para {phone}: {error_msg}")
+                    
+                    # Se for áudio, considerar sucesso apenas se o áudio foi enviado
+                    # Se o texto também foi enviado, ambos devem ter sucesso
+                    if media_type == "audio":
+                        if personalized_message:
+                            success = text_sent and audio_sent
+                            if not success:
+                                error_msg = f"Texto: {'OK' if text_sent else 'Falhou'}, Áudio: {'OK' if audio_sent else 'Falhou'}"
+                        else:
+                            success = audio_sent
+                    else:
+                        success = audio_sent
                 else:
                     # Enviar apenas texto
                     url = f"{instance.api_url}/message/sendText/{api_instance_name}"
@@ -1117,16 +1168,19 @@ async def send_custom_message(
                         "number": phone_clean,
                         "text": personalized_message
                     }
+                    
+                    response = requests.post(url, json=payload, headers=headers, timeout=60)
+                    success = response.status_code in [200, 201]
+                    text_sent = success
+                    if not success:
+                        error_msg = response.text[:200] if response.text else f"HTTP {response.status_code}"
                 
-                response = requests.post(url, json=payload, headers=headers, timeout=60)
-                
-                success = response.status_code in [200, 201]
                 result_data = {
                     "phone": phone,
                     "name": name,
                     "success": success,
                     "status": "sent" if success else "failed",
-                    "error": None if success else response.text[:200],
+                    "error": error_msg,
                     "message_id": None
                 }
                 

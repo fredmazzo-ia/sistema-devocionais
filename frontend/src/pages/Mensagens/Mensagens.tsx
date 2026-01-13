@@ -3,6 +3,7 @@ import { contatoApi, envioApi } from '../../services/api'
 import type { Contato } from '../../types'
 import { Send, Image, Video, FileText, X, Upload, Users, CheckCircle, AlertCircle, Loader, Mic, MicOff, Square } from 'lucide-react'
 import './Mensagens.css'
+import './Mensagens-responsive.css'
 
 export default function Mensagens() {
   const [message, setMessage] = useState('')
