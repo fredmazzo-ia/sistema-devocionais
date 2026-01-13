@@ -418,45 +418,56 @@ export default function Contatos() {
             <button
               className="pagination-btn"
               onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || totalPages === 0}
               title="Página anterior"
             >
               <ChevronLeft size={18} />
             </button>
             <div className="pagination-pages">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                // Mostrar apenas algumas páginas ao redor da atual
-                if (
-                  page === 1 ||
-                  page === totalPages ||
-                  (page >= currentPage - 2 && page <= currentPage + 2)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      className={`pagination-page ${currentPage === page ? 'active' : ''}`}
-                      onClick={() => handlePageChange(page)}
-                    >
-                      {page}
-                    </button>
-                  )
-                } else if (
-                  page === currentPage - 3 ||
-                  page === currentPage + 3
-                ) {
-                  return (
-                    <span key={page} className="pagination-ellipsis">
-                      ...
-                    </span>
-                  )
-                }
-                return null
-              })}
+              {totalPages === 0 ? (
+                <span className="pagination-page active">1</span>
+              ) : totalPages === 1 ? (
+                <button
+                  className="pagination-page active"
+                  onClick={() => handlePageChange(1)}
+                >
+                  1
+                </button>
+              ) : (
+                Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Mostrar apenas algumas páginas ao redor da atual
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 2 && page <= currentPage + 2)
+                  ) {
+                    return (
+                      <button
+                        key={page}
+                        className={`pagination-page ${currentPage === page ? 'active' : ''}`}
+                        onClick={() => handlePageChange(page)}
+                      >
+                        {page}
+                      </button>
+                    )
+                  } else if (
+                    page === currentPage - 3 ||
+                    page === currentPage + 3
+                  ) {
+                    return (
+                      <span key={page} className="pagination-ellipsis">
+                        ...
+                      </span>
+                    )
+                  }
+                  return null
+                })
+              )}
             </div>
             <button
               className="pagination-btn"
               onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === totalPages || totalPages === 0}
               title="Próxima página"
             >
               <ChevronRight size={18} />
