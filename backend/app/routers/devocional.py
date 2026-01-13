@@ -439,24 +439,20 @@ async def send_custom_message(
                     # Usar "audio" para áudio (não "ptt")
                     payload_mediatype = media_type  # Já está correto: "audio", "image" ou "video"
                     
-                    # Para áudio, usar formato data URL (como n8n faz)
-                    # Formato: data:audio/ogg;base64,<base64_string>
-                    if media_type == "audio":
-                        media_data_url = f"data:{media_mimetype};base64,{media_base64}"
-                        payload = {
-                            "number": phone_clean,
-                            "mediatype": payload_mediatype,
-                            "media": media_data_url,
-                            "mimetype": media_mimetype,
-                        }
-                    else:
-                        # Para imagem e vídeo, usar base64 direto
-                        payload = {
-                            "number": phone_clean,
-                            "mediatype": payload_mediatype,
-                            "media": media_base64,
-                            "mimetype": media_mimetype,
-                        }
+                    # Evolution API espera base64 direto OU URL pública
+                    # Garantir que o base64 está limpo (sem espaços, quebras de linha, etc)
+                    media_base64_clean = media_base64.strip().replace('\n', '').replace('\r', '').replace(' ', '')
+                    
+                    payload = {
+                        "number": phone_clean,
+                        "mediatype": payload_mediatype,
+                        "media": media_base64_clean,
+                        "mimetype": media_mimetype,
+                    }
+                    
+                    # Para áudio, adicionar fileName se disponível
+                    if media_type == "audio" and media_file and media_file.filename:
+                        payload["fileName"] = media_file.filename
                     
                     # Adicionar caption apenas se houver mensagem e não for áudio
                     if personalized_message and media_type != "audio":
