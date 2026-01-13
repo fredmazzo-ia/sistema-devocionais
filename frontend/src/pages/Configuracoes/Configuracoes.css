@@ -326,20 +326,23 @@
 .config-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 14px;
   font-weight: 600;
   color: #374151;
   line-height: 1.5;
   margin-bottom: 8px;
+  flex-wrap: nowrap;
 }
 
 .config-label > span:first-child {
-  flex: 1;
-  min-width: 120px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.config-label > span[title] {
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 /* Quebra inteligente apenas quando necessário */
@@ -608,14 +611,17 @@
 }
 
 .checkbox-item span {
-  flex: 1;
   font-size: 14px;
   font-weight: 500;
   color: #374151;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex-shrink: 0;
   line-height: 1.5;
+}
+
+.checkbox-item > span[title] {
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .checkbox-item .info-icon {
