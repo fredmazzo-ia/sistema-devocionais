@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { contatoApi, envioApi } from '../../services/api'
 import type { Contato } from '../../types'
-import { Send, Image, Video, FileText, X, Upload, Users, CheckCircle, AlertCircle, Loader, Mic, MicOff, Square } from 'lucide-react'
+import { Send, Image, Video, FileText, X, Upload, Users, CheckCircle, AlertCircle, Loader, Mic, MicOff, Square, Camera, CameraOff } from 'lucide-react'
 import './Mensagens.css'
 import './Mensagens-responsive.css'
 
@@ -23,6 +23,14 @@ export default function Mensagens() {
   const [recordingTime, setRecordingTime] = useState(0)
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const [audioChunks, setAudioChunks] = useState<Blob[]>([])
+  
+  // Estados para gravação de vídeo
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false)
+  const [videoRecordingTime, setVideoRecordingTime] = useState(0)
+  const [videoRecorder, setVideoRecorder] = useState<MediaRecorder | null>(null)
+  const [videoChunks, setVideoChunks] = useState<Blob[]>([])
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null)
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment') // 'user' = frente, 'environment' = trás
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -157,16 +165,141 @@ export default function Mensagens() {
       }
     }
   }
+  
+  const startVideoRecording = async () => {
+    try {
+      // Solicitar acesso à câmera e microfone
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: facingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }, 
+        audio: true 
+      })
+      
+      setVideoStream(stream)
+      
+      // Tentar usar o melhor formato suportado pelo navegador
+      let mimeType = 'video/webm;codecs=vp8,opus' // Fallback padrão
+      let finalType = 'video/webm'
+      let finalExtension = 'webm'
+      
+      // Verificar formatos suportados em ordem de preferência
+      const supportedTypes = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+        'video/mp4'
+      ]
+      
+      for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type
+          if (type.includes('webm')) {
+            finalType = 'video/webm'
+            finalExtension = 'webm'
+          } else {
+            finalType = 'video/mp4'
+            finalExtension = 'mp4'
+          }
+          break
+        }
+      }
+      
+      const recorder = new MediaRecorder(stream, { mimeType })
+      
+      const chunks: Blob[] = []
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data)
+        }
+      }
+      
+      recorder.onstop = async () => {
+        const videoBlob = new Blob(chunks, { type: mimeType })
+        
+        // Criar arquivo com o tipo correto
+        const videoFile = new File([videoBlob], `video-${Date.now()}.${finalExtension}`, {
+          type: finalType
+        })
+        
+        setMediaFile(videoFile)
+        setMediaType('video')
+        
+        // Criar preview
+        const videoUrl = URL.createObjectURL(videoBlob)
+        setMediaPreview(videoUrl)
+        
+        // Parar todas as tracks do stream
+        stream.getTracks().forEach(track => track.stop())
+        setVideoStream(null)
+      }
+      
+      recorder.start()
+      setVideoRecorder(recorder)
+      setVideoChunks(chunks)
+      setIsRecordingVideo(true)
+      setVideoRecordingTime(0)
+      
+      // Timer para mostrar duração da gravação
+      const timer = setInterval(() => {
+        setVideoRecordingTime((prev) => prev + 1)
+      }, 1000)
+      
+      // Armazenar timer para limpar depois
+      ;(recorder as any).timer = timer
+    } catch (err) {
+      console.error('Erro ao iniciar gravação de vídeo:', err)
+      alert('Não foi possível acessar a câmera. Verifique as permissões.')
+    }
+  }
+  
+  const stopVideoRecording = () => {
+    if (videoRecorder && isRecordingVideo) {
+      videoRecorder.stop()
+      setIsRecordingVideo(false)
+      
+      // Limpar timer
+      if ((videoRecorder as any).timer) {
+        clearInterval((videoRecorder as any).timer)
+      }
+      
+      // Parar stream de vídeo
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop())
+        setVideoStream(null)
+      }
+    }
+  }
+  
+  const toggleCamera = async () => {
+    // Só pode trocar câmera se não estiver gravando
+    if (isRecordingVideo) return
+    
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user'
+    setFacingMode(newFacingMode)
+  }
 
   const handleRemoveMedia = () => {
     // Parar gravação se estiver gravando
     if (isRecording) {
       stopRecording()
     }
+    if (isRecordingVideo) {
+      stopVideoRecording()
+    }
     
-    // Limpar preview URL se for áudio
-    if (mediaPreview && mediaType === 'audio') {
+    // Limpar preview URL se for áudio ou vídeo
+    if (mediaPreview && (mediaType === 'audio' || mediaType === 'video')) {
       URL.revokeObjectURL(mediaPreview)
+    }
+    
+    // Parar stream de vídeo se estiver ativo
+    if (videoStream) {
+      videoStream.getTracks().forEach(track => track.stop())
+      setVideoStream(null)
     }
     
     setMediaFile(null)
@@ -382,26 +515,74 @@ export default function Mensagens() {
                   <div className="record-divider">
                     <span>ou</span>
                   </div>
-                  <button
-                    className={`btn-record ${isRecording ? 'recording' : ''}`}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    type="button"
-                  >
-                    {isRecording ? (
-                      <>
-                        <Square size={20} />
-                        <span>Parar Gravação</span>
-                        <span className="recording-time">
-                          {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Mic size={20} />
-                        <span>Gravar Áudio</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="record-buttons">
+                    <button
+                      className={`btn-record ${isRecording ? 'recording' : ''}`}
+                      onClick={isRecording ? stopRecording : startRecording}
+                      type="button"
+                      disabled={isRecordingVideo}
+                    >
+                      {isRecording ? (
+                        <>
+                          <Square size={20} />
+                          <span>Parar Áudio</span>
+                          <span className="recording-time">
+                            {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Mic size={20} />
+                          <span>Gravar Áudio</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      className={`btn-record btn-record-video ${isRecordingVideo ? 'recording' : ''}`}
+                      onClick={isRecordingVideo ? stopVideoRecording : startVideoRecording}
+                      type="button"
+                      disabled={isRecording}
+                    >
+                      {isRecordingVideo ? (
+                        <>
+                          <Square size={20} />
+                          <span>Parar Vídeo</span>
+                          <span className="recording-time">
+                            {Math.floor(videoRecordingTime / 60)}:{(videoRecordingTime % 60).toString().padStart(2, '0')}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Camera size={20} />
+                          <span>Gravar Vídeo</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {isRecordingVideo && videoStream && (
+                    <div className="video-preview-container">
+                      <video 
+                        ref={(video) => {
+                          if (video && videoStream) {
+                            video.srcObject = videoStream
+                            video.play()
+                          }
+                        }}
+                        autoPlay
+                        muted
+                        playsInline
+                        className="video-preview-live"
+                      />
+                      <button
+                        className="btn-toggle-camera"
+                        onClick={toggleCamera}
+                        type="button"
+                        title="Trocar câmera"
+                      >
+                        <CameraOff size={18} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
