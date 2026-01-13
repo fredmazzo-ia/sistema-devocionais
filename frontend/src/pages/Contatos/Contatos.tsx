@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { contatoApi } from '../../services/api'
 import type { Contato } from '../../types'
-import { Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Upload, Power, PowerOff } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, UserCheck, UserX, Phone, Upload, Power, PowerOff, ChevronLeft, ChevronRight } from 'lucide-react'
 import './Contatos.css'
 
 export default function Contatos() {
@@ -16,6 +16,8 @@ export default function Contatos() {
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const [csvPreview, setCsvPreview] = useState<Array<{ phone: string; name: string }>>([])
   const [csvLoading, setCsvLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(20)
 
   useEffect(() => {
     loadContatos()
@@ -216,6 +218,33 @@ export default function Contatos() {
   const activeCount = contatos.filter((c) => c.active).length
   const inactiveCount = contatos.filter((c) => !c.active).length
 
+  // Paginação
+  const totalPages = Math.ceil(filteredContatos.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const paginatedContatos = filteredContatos.slice(startIndex, endIndex)
+
+  // Resetar página quando buscar
+  useEffect(() => {
+    if (searchTerm) {
+      setCurrentPage(1)
+    }
+  }, [searchTerm])
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    // Scroll para o topo da tabela
+    const tableContainer = document.querySelector('.contatos-table-container')
+    if (tableContainer) {
+      tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  const handleItemsPerPageChange = (items: number) => {
+    setItemsPerPage(items)
+    setCurrentPage(1) // Resetar para primeira página
+  }
+
   if (loading) {
     return (
       <div className="contatos-loading">
@@ -291,7 +320,7 @@ export default function Contatos() {
                 </td>
               </tr>
             ) : (
-              filteredContatos.map((contato) => (
+              paginatedContatos.map((contato) => (
                 <tr key={contato.id}>
                   <td>
                     <div className="contact-name">
@@ -364,6 +393,77 @@ export default function Contatos() {
           </tbody>
         </table>
       </div>
+
+      {/* Paginação */}
+      {filteredContatos.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              Mostrando {startIndex + 1} - {Math.min(endIndex, filteredContatos.length)} de {filteredContatos.length} contatos
+            </span>
+            <div className="items-per-page">
+              <label>Itens por página:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              title="Página anterior"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="pagination-pages">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Mostrar apenas algumas páginas ao redor da atual
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 2 && page <= currentPage + 2)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      className={`pagination-page ${currentPage === page ? 'active' : ''}`}
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </button>
+                  )
+                } else if (
+                  page === currentPage - 3 ||
+                  page === currentPage + 3
+                ) {
+                  return (
+                    <span key={page} className="pagination-ellipsis">
+                      ...
+                    </span>
+                  )
+                }
+                return null
+              })}
+            </div>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              title="Próxima página"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
