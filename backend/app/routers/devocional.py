@@ -21,7 +21,6 @@ import base64
 import requests
 import asyncio
 from app.instance_manager import EvolutionInstance, InstanceStatus
-from app.message_result import MessageResult, MessageStatus
 
 logger = logging.getLogger(__name__)
 
