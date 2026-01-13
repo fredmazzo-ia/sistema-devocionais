@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { contatoApi, envioApi } from '../../services/api'
 import type { Contato } from '../../types'
-import { Send, Image, Video, FileText, X, Upload, Users, CheckCircle, AlertCircle, Loader } from 'lucide-react'
+import { Send, Image, Video, FileText, X, Upload, Users, CheckCircle, AlertCircle, Loader, Mic, MicOff, Square } from 'lucide-react'
 import './Mensagens.css'
 
 export default function Mensagens() {
   const [message, setMessage] = useState('')
   const [mediaFile, setMediaFile] = useState<File | null>(null)
   const [mediaPreview, setMediaPreview] = useState<string | null>(null)
-  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null)
+  const [mediaType, setMediaType] = useState<'image' | 'video' | 'audio' | null>(null)
   const [selectedContacts, setSelectedContacts] = useState<Contato[]>([])
   const [showContactSelector, setShowContactSelector] = useState(false)
   const [allContacts, setAllContacts] = useState<Contato[]>([])
@@ -16,6 +16,12 @@ export default function Mensagens() {
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{ success: boolean; total: number; sent: number; failed: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  
+  // Estados para gravação de áudio
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -42,16 +48,100 @@ export default function Mensagens() {
         setMediaPreview(event.target?.result as string)
       }
       reader.readAsDataURL(file)
+    } else if (file.type.startsWith('audio/')) {
+      setMediaType('audio')
+      setMediaFile(file)
+      
+      // Criar preview para áudio
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        setMediaPreview(event.target?.result as string)
+      }
+      reader.readAsDataURL(file)
     } else {
-      alert('Por favor, selecione uma imagem ou vídeo')
+      alert('Por favor, selecione uma imagem, vídeo ou áudio')
       return
+    }
+  }
+  
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      })
+      
+      const chunks: Blob[] = []
+      
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data)
+        }
+      }
+      
+      recorder.onstop = () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm;codecs=opus' })
+        const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, {
+          type: 'audio/webm;codecs=opus'
+        })
+        
+        setMediaFile(audioFile)
+        setMediaType('audio')
+        
+        // Criar preview
+        const audioUrl = URL.createObjectURL(audioBlob)
+        setMediaPreview(audioUrl)
+        
+        // Parar todas as tracks do stream
+        stream.getTracks().forEach(track => track.stop())
+      }
+      
+      recorder.start()
+      setMediaRecorder(recorder)
+      setAudioChunks(chunks)
+      setIsRecording(true)
+      setRecordingTime(0)
+      
+      // Timer para mostrar duração da gravação
+      const timer = setInterval(() => {
+        setRecordingTime((prev) => prev + 1)
+      }, 1000)
+      
+      // Armazenar timer para limpar depois
+      ;(recorder as any).timer = timer
+    } catch (err) {
+      console.error('Erro ao iniciar gravação:', err)
+      alert('Não foi possível acessar o microfone. Verifique as permissões.')
+    }
+  }
+  
+  const stopRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop()
+      setIsRecording(false)
+      
+      // Limpar timer
+      if ((mediaRecorder as any).timer) {
+        clearInterval((mediaRecorder as any).timer)
+      }
     }
   }
 
   const handleRemoveMedia = () => {
+    // Parar gravação se estiver gravando
+    if (isRecording) {
+      stopRecording()
+    }
+    
+    // Limpar preview URL se for áudio
+    if (mediaPreview && mediaType === 'audio') {
+      URL.revokeObjectURL(mediaPreview)
+    }
+    
     setMediaFile(null)
     setMediaPreview(null)
     setMediaType(null)
+    setRecordingTime(0)
   }
 
   const loadContacts = async () => {
@@ -84,8 +174,15 @@ export default function Mensagens() {
 
   const handleSend = async () => {
     if (!message.trim() && !mediaFile) {
-      alert('Por favor, escreva uma mensagem ou selecione uma imagem/vídeo')
+      alert('Por favor, escreva uma mensagem ou selecione uma imagem/vídeo/áudio')
       return
+    }
+    
+    // Parar gravação se estiver gravando
+    if (isRecording) {
+      stopRecording()
+      // Aguardar um pouco para o áudio ser processado
+      await new Promise(resolve => setTimeout(resolve, 500))
     }
 
     if (selectedContacts.length === 0 && allContacts.length === 0) {
@@ -156,7 +253,7 @@ export default function Mensagens() {
           <Send size={28} />
           <div>
             <h1>Enviar Mensagem Personalizada</h1>
-            <p>Envie mensagens de texto, imagens ou vídeos para seus contatos</p>
+            <p>Envie mensagens de texto, imagens, vídeos ou áudios para seus contatos</p>
           </div>
         </div>
       </div>
@@ -214,7 +311,7 @@ export default function Mensagens() {
                 <input
                   type="file"
                   id="media-upload"
-                  accept="image/*,video/*"
+                  accept="image/*,video/*,audio/*"
                   onChange={handleFileSelect}
                   style={{ display: 'none' }}
                 />
@@ -222,7 +319,7 @@ export default function Mensagens() {
                   <Upload size={24} />
                   <div>
                     <strong>Clique para fazer upload</strong>
-                    <span>Imagem (máx. 16MB) ou Vídeo (máx. 64MB)</span>
+                    <span>Imagem (máx. 16MB), Vídeo (máx. 64MB) ou Áudio (máx. 16MB)</span>
                   </div>
                 </label>
                 <div className="upload-options">
@@ -234,6 +331,35 @@ export default function Mensagens() {
                     <Video size={20} />
                     <span>Vídeo</span>
                   </label>
+                  <label htmlFor="media-upload" className="upload-option">
+                    <Mic size={20} />
+                    <span>Áudio</span>
+                  </label>
+                </div>
+                <div className="record-audio-section">
+                  <div className="record-divider">
+                    <span>ou</span>
+                  </div>
+                  <button
+                    className={`btn-record ${isRecording ? 'recording' : ''}`}
+                    onClick={isRecording ? stopRecording : startRecording}
+                    type="button"
+                  >
+                    {isRecording ? (
+                      <>
+                        <Square size={20} />
+                        <span>Parar Gravação</span>
+                        <span className="recording-time">
+                          {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Mic size={20} />
+                        <span>Gravar Áudio</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             ) : (
@@ -243,6 +369,11 @@ export default function Mensagens() {
                 )}
                 {mediaType === 'video' && mediaPreview && (
                   <video src={mediaPreview} controls className="preview-video" />
+                )}
+                {mediaType === 'audio' && mediaPreview && (
+                  <div className="preview-audio">
+                    <audio src={mediaPreview} controls className="audio-player" />
+                  </div>
                 )}
                 <div className="media-info">
                   <span className="media-name">{mediaFile.name}</span>

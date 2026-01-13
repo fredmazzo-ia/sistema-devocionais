@@ -268,13 +268,13 @@ async def send_single_devocional(
 async def send_custom_message(
     message: str = Form(...),
     media_file: Optional[UploadFile] = File(None),
-    media_type: Optional[str] = Form(None),  # 'image' ou 'video'
+    media_type: Optional[str] = Form(None),  # 'image', 'video' ou 'audio'
     contacts: Optional[str] = Form(None),  # JSON string de contatos
     delay: Optional[float] = Form(None),
     db: Session = Depends(get_db)
 ):
     """
-    Envia mensagem personalizada (texto + opcionalmente imagem/vídeo) para contatos
+    Envia mensagem personalizada (texto + opcionalmente imagem/vídeo/áudio) para contatos
     """
     try:
         # Obter lista de contatos
@@ -309,17 +309,26 @@ async def send_custom_message(
             file_content = await media_file.read()
             file_size = len(file_content)
             
-            # Limite de tamanho: 16MB para imagens, 64MB para vídeos
+            # Limite de tamanho: 16MB para imagens, 64MB para vídeos, 16MB para áudios
             if media_type == 'image' and file_size > 16 * 1024 * 1024:
                 raise HTTPException(status_code=400, detail="Imagem muito grande. Máximo: 16MB")
             if media_type == 'video' and file_size > 64 * 1024 * 1024:
                 raise HTTPException(status_code=400, detail="Vídeo muito grande. Máximo: 64MB")
+            if media_type == 'audio' and file_size > 16 * 1024 * 1024:
+                raise HTTPException(status_code=400, detail="Áudio muito grande. Máximo: 16MB")
             
             # Converter para base64
             media_base64 = base64.b64encode(file_content).decode('utf-8')
-            media_mimetype = media_file.content_type or (
-                'image/jpeg' if media_type == 'image' else 'video/mp4'
-            )
+            
+            # Determinar mimetype baseado no tipo de mídia
+            if media_type == 'audio':
+                # WhatsApp aceita audio/ogg, audio/mp4, audio/mpeg, audio/opus
+                # Se não detectado, usar audio/ogg (formato padrão do WhatsApp)
+                media_mimetype = media_file.content_type or 'audio/ogg; codecs=opus'
+            elif media_type == 'image':
+                media_mimetype = media_file.content_type or 'image/jpeg'
+            else:  # video
+                media_mimetype = media_file.content_type or 'video/mp4'
         
         # Obter instância para envio usando InstanceManager com banco de dados
         from app.instance_manager import InstanceManager
@@ -377,13 +386,31 @@ async def send_custom_message(
                 if media_base64:
                     # Enviar mídia
                     url = f"{instance.api_url}/message/sendMedia/{api_instance_name}"
+                    
+                    # Para áudio, usar mediatype "ptt" (push-to-talk) que é o formato de áudio do WhatsApp
+                    # ou "audio" dependendo da versão da Evolution API
+                    payload_mediatype = "ptt" if media_type == "audio" else media_type
+                    
                     payload = {
                         "number": phone_clean,
-                        "mediatype": media_type,
+                        "mediatype": payload_mediatype,
                         "media": media_base64,
                         "mimetype": media_mimetype,
-                        "caption": personalized_message
                     }
+                    
+                    # Adicionar caption apenas se houver mensagem e não for áudio
+                    # (áudios geralmente não têm caption no WhatsApp)
+                    if personalized_message and media_type != "audio":
+                        payload["caption"] = personalized_message
+                    elif personalized_message and media_type == "audio":
+                        # Para áudio, enviar mensagem de texto separada antes do áudio
+                        text_url = f"{instance.api_url}/message/sendText/{api_instance_name}"
+                        text_payload = {
+                            "number": phone_clean,
+                            "text": personalized_message
+                        }
+                        # Enviar texto primeiro
+                        requests.post(text_url, json=text_payload, headers=headers, timeout=30)
                 else:
                     # Enviar apenas texto
                     url = f"{instance.api_url}/message/sendText/{api_instance_name}"
@@ -1058,13 +1085,31 @@ async def send_custom_message(
                 if media_base64:
                     # Enviar mídia
                     url = f"{instance.api_url}/message/sendMedia/{api_instance_name}"
+                    
+                    # Para áudio, usar mediatype "ptt" (push-to-talk) que é o formato de áudio do WhatsApp
+                    # ou "audio" dependendo da versão da Evolution API
+                    payload_mediatype = "ptt" if media_type == "audio" else media_type
+                    
                     payload = {
                         "number": phone_clean,
-                        "mediatype": media_type,
+                        "mediatype": payload_mediatype,
                         "media": media_base64,
                         "mimetype": media_mimetype,
-                        "caption": personalized_message
                     }
+                    
+                    # Adicionar caption apenas se houver mensagem e não for áudio
+                    # (áudios geralmente não têm caption no WhatsApp)
+                    if personalized_message and media_type != "audio":
+                        payload["caption"] = personalized_message
+                    elif personalized_message and media_type == "audio":
+                        # Para áudio, enviar mensagem de texto separada antes do áudio
+                        text_url = f"{instance.api_url}/message/sendText/{api_instance_name}"
+                        text_payload = {
+                            "number": phone_clean,
+                            "text": personalized_message
+                        }
+                        # Enviar texto primeiro
+                        requests.post(text_url, json=text_payload, headers=headers, timeout=30)
                 else:
                     # Enviar apenas texto
                     url = f"{instance.api_url}/message/sendText/{api_instance_name}"
