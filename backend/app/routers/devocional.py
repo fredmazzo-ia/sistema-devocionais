@@ -409,12 +409,17 @@ async def send_custom_message(
                 if 'mp3' in content_type or 'mpeg' in content_type or 'mp3' in filename:
                     media_mimetype = 'audio/mpeg'  # MP3 - mais compatível
                 elif 'ogg' in content_type or 'opus' in content_type or 'ogg' in filename or 'opus' in filename:
-                    # OGG/Opus: Se for gravado no navegador (contém "audio-" no nome), tentar como MP3
+                    # OGG/Opus: Se for gravado no navegador (contém "audio-" no nome), foi convertido para AMR ou MP3
                     # Se for do ElevenLabs (nome diferente), usar OGG
                     if 'audio-' in filename and filename.startswith('audio-'):
-                        # Áudio gravado no navegador - tentar como MP3 para melhor compatibilidade
-                        logger.info(f"⚠️ Áudio gravado no navegador detectado, tentando como MP3 para melhor compatibilidade")
-                        media_mimetype = 'audio/mpeg'  # Forçar MP3 para áudios gravados
+                        # Áudio gravado no navegador - foi convertido, verificar se é AMR ou MP3
+                        # Verificar assinatura do arquivo convertido
+                        if file_content[:4] == b'#!AMR':
+                            media_mimetype = 'audio/amr'  # AMR - formato nativo WhatsApp
+                            logger.info(f"✅ Áudio convertido detectado como AMR")
+                        else:
+                            media_mimetype = 'audio/mpeg'  # MP3 como fallback
+                            logger.info(f"✅ Áudio convertido detectado como MP3")
                     else:
                         # Áudio do ElevenLabs ou outro - usar OGG
                         media_mimetype = 'audio/ogg'  # Sem codecs para melhor compatibilidade
