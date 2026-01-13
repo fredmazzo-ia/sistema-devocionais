@@ -321,9 +321,12 @@ async def send_custom_message(
             if media_type == 'audio' and file_size > 16 * 1024 * 1024:
                 raise HTTPException(status_code=400, detail="Áudio muito grande. Máximo: 16MB")
             
-            # Converter para base64
+            # Converter para base64 (string pura, sem prefixo data:)
+            # Evolution API espera apenas a string base64, sem espaços ou quebras
             media_base64 = base64.b64encode(file_content).decode('utf-8')
-            logger.info(f"✅ Mídia convertida para base64: tamanho={len(media_base64)} caracteres")
+            # Remover qualquer espaço ou quebra de linha que possa ter sido adicionada
+            media_base64 = media_base64.replace('\n', '').replace('\r', '').replace(' ', '')
+            logger.info(f"✅ Mídia convertida para base64: tamanho={len(media_base64)} caracteres, primeiros 50 chars: {media_base64[:50]}...")
             
             # Determinar mimetype baseado no tipo de mídia
             if media_type == 'audio':
@@ -441,14 +444,20 @@ async def send_custom_message(
                     # Usar "audio" para áudio (não "ptt")
                     payload_mediatype = media_type  # Já está correto: "audio", "image" ou "video"
                     
-                    # Evolution API espera base64 direto OU URL pública
-                    # Garantir que o base64 está limpo (sem espaços, quebras de linha, etc)
-                    media_base64_clean = media_base64.strip().replace('\n', '').replace('\r', '').replace(' ', '')
+                    # Evolution API espera base64 direto (string pura, sem prefixo data:)
+                    # O base64 já foi limpo na conversão, mas garantir novamente
+                    # IMPORTANTE: Enviar apenas a string base64, sem data: prefix
+                    media_base64_final = media_base64.strip()
+                    
+                    # Validar que é base64 válido (caracteres alfanuméricos, +, /, =)
+                    import re
+                    if not re.match(r'^[A-Za-z0-9+/]*={0,2}$', media_base64_final):
+                        logger.error(f"❌ Base64 inválido detectado! Primeiros 100 chars: {media_base64_final[:100]}")
                     
                     payload = {
                         "number": phone_clean,
                         "mediatype": payload_mediatype,
-                        "media": media_base64_clean,
+                        "media": media_base64_final,  # String base64 pura, sem prefixo
                         "mimetype": media_mimetype,
                     }
                     
