@@ -102,7 +102,7 @@ export default function Dashboard() {
         <div className="stats-grid-modern">
           <div className="stat-card-modern stat-primary">
             <div className="stat-icon-modern">
-              <Send size={28} />
+              <Send size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Total Enviadas</h3>
@@ -115,7 +115,7 @@ export default function Dashboard() {
 
           <div className="stat-card-modern stat-success">
             <div className="stat-icon-modern">
-              <CheckCircle size={28} />
+              <CheckCircle size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Entregues</h3>
@@ -128,7 +128,7 @@ export default function Dashboard() {
 
           <div className="stat-card-modern stat-info">
             <div className="stat-icon-modern">
-              <Eye size={28} />
+              <Eye size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Lidas</h3>
@@ -141,7 +141,7 @@ export default function Dashboard() {
 
           <div className="stat-card-modern stat-danger">
             <div className="stat-icon-modern">
-              <XCircle size={28} />
+              <XCircle size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Falhas</h3>
@@ -154,7 +154,7 @@ export default function Dashboard() {
 
           <div className="stat-card-modern stat-warning">
             <div className="stat-icon-modern">
-              <TrendingUp size={28} />
+              <TrendingUp size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Taxa de Sucesso</h3>
@@ -176,7 +176,7 @@ export default function Dashboard() {
         <div className="stats-grid-modern">
           <div className="stat-card-modern stat-primary">
             <div className="stat-icon-modern">
-              <Users size={28} />
+              <Users size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Total de Contatos</h3>
@@ -189,7 +189,7 @@ export default function Dashboard() {
 
           <div className="stat-card-modern stat-success">
             <div className="stat-icon-modern">
-              <UserCheck size={28} />
+              <UserCheck size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Contatos Ativos</h3>
@@ -202,7 +202,7 @@ export default function Dashboard() {
 
           <div className="stat-card-modern stat-info">
             <div className="stat-icon-modern">
-              <TrendingUp size={28} />
+              <TrendingUp size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Novos Contatos</h3>
@@ -250,9 +250,9 @@ export default function Dashboard() {
             </div>
 
             <div className="stat-card-modern stat-danger">
-              <div className="stat-icon-modern">
-                <UserX size={28} />
-              </div>
+            <div className="stat-icon-modern">
+              <UserX size={24} />
+            </div>
               <div className="stat-content-modern">
                 <h3>Negados</h3>
                 <p className="stat-value-modern">{stats.consents.denied.toLocaleString()}</p>
@@ -272,7 +272,7 @@ export default function Dashboard() {
         <div className="stats-grid-modern">
           <div className="stat-card-modern stat-primary">
             <div className="stat-icon-modern">
-              <FileText size={28} />
+              <FileText size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Total de Devocionais</h3>
@@ -285,7 +285,7 @@ export default function Dashboard() {
 
           <div className="stat-card-modern stat-info">
             <div className="stat-icon-modern">
-              <TrendingUp size={28} />
+              <TrendingUp size={24} />
             </div>
             <div className="stat-content-modern">
               <h3>Criados Este Mês</h3>
@@ -307,9 +307,9 @@ export default function Dashboard() {
           </h2>
           <div className="stats-grid-modern">
             <div className="stat-card-modern stat-primary">
-              <div className="stat-icon-modern">
-                <Webhook size={28} />
-              </div>
+            <div className="stat-icon-modern">
+              <Webhook size={24} />
+            </div>
               <div className="stat-content-modern">
                 <h3>Total Recebidos</h3>
                 <p className="stat-value-modern">{stats.webhooks.total.toLocaleString()}</p>
@@ -357,9 +357,9 @@ export default function Dashboard() {
             </div>
 
             <div className="stat-card-modern stat-info">
-              <div className="stat-icon-modern">
-                <MessageSquare size={28} />
-              </div>
+            <div className="stat-icon-modern">
+              <MessageSquare size={24} />
+            </div>
               <div className="stat-content-modern">
                 <h3>Respostas</h3>
                 <p className="stat-value-modern">{stats.engagement.total_responses.toLocaleString()}</p>
@@ -389,9 +389,9 @@ export default function Dashboard() {
             ) : (
               <>
                 <div className="stat-card-modern stat-primary">
-                  <div className="stat-icon-modern">
-                    <Server size={28} />
-                  </div>
+            <div className="stat-icon-modern">
+              <Server size={24} />
+            </div>
                   <div className="stat-content-modern">
                     <h3>Total de Instâncias</h3>
                     <p className="stat-value-modern">{stats.instances.total}</p>
