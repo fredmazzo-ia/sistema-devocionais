@@ -594,14 +594,103 @@
 /* Responsive */
 @media (max-width: 768px) {
   .mensagens-page {
+    padding: 16px 8px;
+  }
+
+  .mensagens-header {
+    margin-bottom: 24px;
+  }
+
+  .header-title h1 {
+    font-size: 22px;
+  }
+
+  .header-title p {
+    font-size: 13px;
+  }
+
+  .message-editor-card,
+  .media-upload-card,
+  .contacts-card {
     padding: 16px;
+  }
+
+  .card-header h3 {
+    font-size: 16px;
   }
 
   .upload-options {
     flex-direction: column;
+    gap: 8px;
+  }
+
+  .upload-option {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .record-audio-section {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+
+  .btn-record {
+    padding: 12px 16px;
+    font-size: 14px;
+    min-height: 48px;
   }
 
   .contact-selector {
     max-height: 300px;
+  }
+
+  .btn-select-contacts {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .btn-send {
+    width: 100%;
+    padding: 14px 24px;
+    font-size: 15px;
+    min-height: 48px;
+  }
+
+  .preview-image,
+  .preview-video {
+    max-height: 250px;
+  }
+
+  .preview-audio {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mensagens-page {
+    padding: 12px 4px;
+  }
+
+  .header-title h1 {
+    font-size: 20px;
+  }
+
+  .message-editor-card,
+  .media-upload-card,
+  .contacts-card {
+    padding: 12px;
+  }
+
+  .upload-area {
+    padding: 24px 16px;
+  }
+
+  .upload-button strong {
+    font-size: 14px;
+  }
+
+  .upload-button span {
+    font-size: 12px;
   }
 }

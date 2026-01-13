@@ -1,7 +1,7 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
-import { LogOut, Home, BookOpen, Users, Send, Settings, BarChart3, Server, MessageSquare } from 'lucide-react'
+import { LogOut, Home, BookOpen, Users, Send, Settings, BarChart3, Server, MessageSquare, Menu, X } from 'lucide-react'
 import './Layout.css'
 
 interface LayoutProps {
@@ -12,6 +12,7 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const handleLogout = async () => {
     await logout()
@@ -20,9 +21,41 @@ export default function Layout({ children }: LayoutProps) {
 
   const isActive = (path: string) => location.pathname === path
 
+  // Fechar sidebar ao mudar de rota em mobile
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
+
+  // Fechar sidebar ao clicar fora em mobile
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (window.innerWidth <= 768 && sidebarOpen) {
+        const target = e.target as HTMLElement
+        if (!target.closest('.sidebar') && !target.closest('.menu-toggle')) {
+          setSidebarOpen(false)
+        }
+      }
+    }
+
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [sidebarOpen])
+
   return (
     <div className="layout">
-      <aside className="sidebar">
+      {/* Overlay para mobile */}
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+      
+      {/* Botão hamburger para mobile */}
+      <button 
+        className="menu-toggle"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        aria-label="Toggle menu"
+      >
+        {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h1>📖 Devocionais</h1>
         </div>

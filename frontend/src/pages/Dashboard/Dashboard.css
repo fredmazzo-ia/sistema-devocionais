@@ -465,19 +465,76 @@
 /* Responsive */
 @media (max-width: 768px) {
   .dashboard-modern {
-    padding: 1rem;
+    padding: 16px 8px;
   }
 
   .dashboard-header {
     flex-direction: column;
     gap: 1rem;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 22px;
+  }
+
+  .stats-grid-modern {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card-modern {
+    padding: 16px;
+  }
+
+  .stat-icon-modern {
+    width: 40px;
+    height: 40px;
+  }
+
+  .stat-content-modern h3 {
+    font-size: 20px;
+  }
+
+  .stat-label-modern {
+    font-size: 11px;
+  }
+
+  .section-title {
+    font-size: 18px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+  }
+
+  .instances-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .instance-card {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-modern {
+    padding: 12px 4px;
   }
 
   .stats-grid-modern {
     grid-template-columns: 1fr;
   }
 
-  .instances-summary-grid {
-    grid-template-columns: 1fr;
+  .stat-card-modern {
+    padding: 14px;
+  }
+
+  .stat-content-modern h3 {
+    font-size: 18px;
+  }
+
+  .section-title {
+    font-size: 16px;
+    padding: 10px 12px;
   }
 }
