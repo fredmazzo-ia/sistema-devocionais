@@ -105,3 +105,98 @@ export interface LoginResponse {
   user: User
 }
 
+export interface DashboardStats {
+  messages: {
+    total: number
+    sent: number
+    delivered: number
+    read: number
+    failed: number
+    blocked: number
+    retries: number
+    delivery_rate: number
+    read_rate: number
+    success_rate: number
+    today: number
+    week: number
+    month: number
+    last_sent_at: string | null
+    by_status: Record<string, number>
+    by_message_status: Record<string, number>
+  }
+  contacts: {
+    total: number
+    active: number
+    inactive: number
+    with_messages: number
+    today: number
+    week: number
+    month: number
+  }
+  consents: {
+    total: number
+    accepted: number
+    denied: number
+    pending: number
+    awaiting_response: number
+    acceptance_rate: number
+  }
+  devocionais: {
+    total: number
+    sent: number
+    pending: number
+    today: number
+    week: number
+    month: number
+    last_created_at: string | null
+  }
+  webhooks: {
+    total: number
+    processed: number
+    pending: number
+    processing_rate: number
+    today: number
+    week: number
+    month: number
+    by_type: Record<string, number>
+    last_received_at: string | null
+  }
+  engagement: {
+    total_records: number
+    avg_score: number
+    total_responses: number
+    total_read: number
+    total_delivered: number
+    low_engagement_count: number
+    high_engagement_count: number
+  }
+  instances: {
+    total: number
+    active: number
+    inactive: number
+    error: number
+    messages_today: number
+    messages_this_hour: number
+  }
+  periods: {
+    today: {
+      messages: number
+      contacts: number
+      devocionais: number
+      webhooks: number
+    }
+    week: {
+      messages: number
+      contacts: number
+      devocionais: number
+      webhooks: number
+    }
+    month: {
+      messages: number
+      contacts: number
+      devocionais: number
+      webhooks: number
+    }
+  }
+}
+
