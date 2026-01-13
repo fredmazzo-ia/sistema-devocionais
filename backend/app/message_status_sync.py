@@ -38,17 +38,37 @@ class MessageStatusSync:
             cutoff_time = now_brazil_naive() - timedelta(hours=hours_back)
             
             # Query que não depende de message_type (campo pode não existir ainda)
+            # Usar load_only para especificar apenas colunas que existem
+            from sqlalchemy.orm import load_only
             try:
-                messages_to_check = self.db.query(DevocionalEnvio).filter(
+                messages_to_check = self.db.query(DevocionalEnvio).options(
+                    load_only(
+                        DevocionalEnvio.id,
+                        DevocionalEnvio.devocional_id,
+                        DevocionalEnvio.recipient_phone,
+                        DevocionalEnvio.recipient_name,
+                        DevocionalEnvio.message_text,
+                        DevocionalEnvio.status,
+                        DevocionalEnvio.message_id,
+                        DevocionalEnvio.error_message,
+                        DevocionalEnvio.retry_count,
+                        DevocionalEnvio.message_status,
+                        DevocionalEnvio.delivered_at,
+                        DevocionalEnvio.read_at,
+                        DevocionalEnvio.instance_name,
+                        DevocionalEnvio.sent_at,
+                        DevocionalEnvio.scheduled_for,
+                        DevocionalEnvio.created_at
+                    )
+                ).filter(
                     DevocionalEnvio.message_status.in_(["pending", "sent", "delivered"]),
                     DevocionalEnvio.sent_at >= cutoff_time,
                     DevocionalEnvio.message_id.isnot(None)
                 ).all()
             except Exception as db_error:
-                # Se a coluna message_type não existir, fazer query sem ela
+                # Se ainda assim der erro (coluna message_type no SELECT implícito), usar query SQL direta
                 if "message_type" in str(db_error):
-                    logger.warning("⚠️ Coluna message_type não existe ainda. Executando query alternativa...")
-                    # Usar query SQL direta para evitar problema com coluna inexistente
+                    logger.warning("⚠️ Coluna message_type não existe ainda. Executando query SQL direta...")
                     from sqlalchemy import text
                     result = self.db.execute(text("""
                         SELECT id, devocional_id, recipient_phone, recipient_name, message_text, 
