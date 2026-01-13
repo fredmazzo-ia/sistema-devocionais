@@ -763,7 +763,7 @@ async def list_devocionais(
             {
                 "id": d.id,
                 "title": d.title,
-                "content": d.content[:200] + "..." if len(d.content) > 200 else d.content,
+                "content": d.content,  # Retornar conteúdo completo
                 "date": d.date.isoformat() if d.date else None,
                 "source": d.source,
                 "sent": d.sent,
@@ -776,5 +776,50 @@ async def list_devocionais(
     
     except Exception as e:
         logger.error(f"Erro ao listar devocionais: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
+@router.get("/devocionais/{devocional_id}")
+async def get_devocional_by_id(
+    devocional_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Busca um devocional específico por ID com conteúdo completo
+    """
+    try:
+        devocional = db.query(Devocional).filter(
+            Devocional.id == devocional_id
+        ).first()
+        
+        if not devocional:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Devocional com ID {devocional_id} não encontrado"
+            )
+        
+        return {
+            "id": devocional.id,
+            "title": devocional.title,
+            "content": devocional.content,  # Conteúdo completo
+            "date": devocional.date.isoformat() if devocional.date else None,
+            "source": devocional.source,
+            "sent": devocional.sent,
+            "sent_at": devocional.sent_at.isoformat() if devocional.sent_at else None,
+            "created_at": devocional.created_at.isoformat() if devocional.created_at else None,
+            "versiculo_principal_texto": devocional.versiculo_principal_texto,
+            "versiculo_principal_referencia": devocional.versiculo_principal_referencia,
+            "versiculo_apoio_texto": devocional.versiculo_apoio_texto,
+            "versiculo_apoio_referencia": devocional.versiculo_apoio_referencia,
+            "autor": devocional.autor,
+            "tema": devocional.tema,
+            "palavras_chave": devocional.palavras_chave,
+            "metadata": json.loads(devocional.metadata_json) if devocional.metadata_json else None
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao buscar devocional por ID: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
 

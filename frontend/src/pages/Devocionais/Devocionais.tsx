@@ -126,7 +126,17 @@ export default function Devocionais() {
                 <div className="devocional-card-actions">
                   <button
                     className="btn-view"
-                    onClick={() => setSelectedDevocional(devocional)}
+                    onClick={async () => {
+                      try {
+                        // Buscar devocional completo do backend
+                        const fullDevocional = await devocionalApi.getById(devocional.id)
+                        setSelectedDevocional(fullDevocional)
+                      } catch (err: any) {
+                        console.error('Erro ao buscar devocional completo:', err)
+                        // Fallback: usar o devocional da lista mesmo
+                        setSelectedDevocional(devocional)
+                      }
+                    }}
                   >
                     <Eye size={16} />
                     <span>Ver completo</span>
