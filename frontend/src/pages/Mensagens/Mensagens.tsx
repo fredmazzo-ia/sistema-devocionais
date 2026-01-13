@@ -348,6 +348,11 @@ export default function Mensagens() {
       // Aguardar um pouco para o áudio ser processado
       await new Promise(resolve => setTimeout(resolve, 500))
     }
+    if (isRecordingVideo) {
+      stopVideoRecording()
+      // Aguardar um pouco para o vídeo ser processado
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
 
     if (selectedContacts.length === 0 && allContacts.length === 0) {
       alert('Nenhum contato disponível. Adicione contatos primeiro.')
