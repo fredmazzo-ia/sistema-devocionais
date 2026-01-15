@@ -64,6 +64,11 @@ async def get_config(
     db: Session = Depends(get_db)
 ):
     """Retorna todas as configurações do sistema"""
+    from app.timezone_utils import now_brazil
+    
+    send_time = _get_send_time_from_db(db)
+    now_sp = now_brazil()
+    
     return {
         "shield": {
             "enabled": settings.SHIELD_ENABLED,
@@ -83,7 +88,11 @@ async def get_config(
             "retry_delay": settings.RETRY_DELAY,
         },
         "schedule": {
-            "send_time": _get_send_time_from_db(db),
+            "send_time": send_time,
+            "timezone": "America/Sao_Paulo",
+            "timezone_note": "O horário informado é sempre interpretado como horário de São Paulo/Brasília",
+            "current_time_sp": now_sp.strftime("%H:%M:%S"),
+            "current_datetime_sp": now_sp.strftime("%Y-%m-%d %H:%M:%S %Z"),
         }
     }
 
@@ -166,7 +175,10 @@ async def update_schedule_config(
 ):
     """
     Atualiza horário de envio automático (dinâmico - não precisa reiniciar)
+    IMPORTANTE: O horário deve ser sempre em horário de São Paulo (America/Sao_Paulo)
     """
+    from app.timezone_utils import now_brazil
+    
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Apenas administradores podem alterar configurações")
     
@@ -179,18 +191,24 @@ async def update_schedule_config(
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Formato de horário inválido: {e}")
         
+        # Log do horário atual em São Paulo para referência
+        now_sp = now_brazil()
+        logger.info(f"⏰ Recebendo atualização de horário: {config.send_time} (horário de São Paulo)")
+        logger.info(f"⏰ Horário atual em São Paulo: {now_sp.strftime('%H:%M:%S %Z')}")
+        
         # Salvar no banco de dados
         try:
             db_config = db.query(SystemConfig).filter(SystemConfig.key == "devocional_send_time").first()
+            old_value = db_config.value if db_config else None
             if db_config:
-                logger.info(f"Atualizando horário existente: {db_config.value} -> {config.send_time}")
+                logger.info(f"Atualizando horário existente: {old_value} -> {config.send_time} (horário de São Paulo)")
                 db_config.value = config.send_time
             else:
-                logger.info(f"Criando nova configuração de horário: {config.send_time}")
+                logger.info(f"Criando nova configuração de horário: {config.send_time} (horário de São Paulo)")
                 db_config = SystemConfig(
                     key="devocional_send_time",
                     value=config.send_time,
-                    description="Horário de envio automático de devocionais (formato HH:MM, horário de Brasília)"
+                    description="Horário de envio automático de devocionais (formato HH:MM, horário de Brasília/São Paulo - America/Sao_Paulo)"
                 )
                 db.add(db_config)
             
@@ -200,7 +218,8 @@ async def update_schedule_config(
             # Verificar se foi salvo corretamente
             verify_config = db.query(SystemConfig).filter(SystemConfig.key == "devocional_send_time").first()
             if verify_config and verify_config.value == config.send_time:
-                logger.info(f"✅ Horário de envio salvo com sucesso no banco: {verify_config.value}")
+                logger.info(f"✅ Horário de envio salvo com sucesso no banco: {verify_config.value} (horário de São Paulo)")
+                logger.info(f"⏰ O scheduler irá enviar às {verify_config.value} no horário de São Paulo (America/Sao_Paulo)")
             else:
                 logger.error(f"❌ Erro: Horário não foi salvo corretamente. Esperado: {config.send_time}, Encontrado: {verify_config.value if verify_config else 'None'}")
                 raise HTTPException(status_code=500, detail="Erro ao salvar horário no banco de dados")
@@ -213,10 +232,12 @@ async def update_schedule_config(
         # Também atualizar variável de ambiente (para compatibilidade)
         os.environ["DEVOCIONAL_SEND_TIME"] = config.send_time
         
-        logger.info(f"Horário de envio atualizado para {config.send_time} por {current_user.email} (dinâmico - aplicado imediatamente)")
+        logger.info(f"Horário de envio atualizado para {config.send_time} (horário de São Paulo) por {current_user.email} (dinâmico - aplicado imediatamente)")
     
     return {
         "message": "Horário de envio atualizado. Mudança será aplicada automaticamente em até 5 minutos.",
-        "send_time": config.send_time
+        "send_time": config.send_time,
+        "timezone": "America/Sao_Paulo",
+        "note": "O horário informado é sempre interpretado como horário de São Paulo (Brasil)"
     }
 

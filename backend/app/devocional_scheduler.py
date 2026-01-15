@@ -188,6 +188,7 @@ def send_daily_devocional():
 def get_send_time_from_db() -> tuple[int, int]:
     """
     Obtém horário de envio do banco de dados (dinâmico)
+    IMPORTANTE: O horário retornado é sempre interpretado como horário de São Paulo (America/Sao_Paulo)
     Se não encontrar, usa o padrão do .env
     """
     db = SessionLocal()
@@ -197,16 +198,21 @@ def get_send_time_from_db() -> tuple[int, int]:
             try:
                 hour, minute = map(int, config.value.split(':'))
                 if 0 <= hour <= 23 and 0 <= minute <= 59:
+                    logger.debug(f"⏰ Horário lido do banco: {hour:02d}:{minute:02d} (horário de São Paulo)")
                     return hour, minute
-            except ValueError:
-                pass
+                else:
+                    logger.warning(f"⚠️ Horário inválido no banco: {config.value} (hora ou minuto fora do range)")
+            except ValueError as e:
+                logger.warning(f"⚠️ Erro ao parsear horário do banco: {config.value} - {e}")
         
         # Se não encontrou no banco, usa padrão do .env
         try:
             send_time_str = settings.DEVOCIONAL_SEND_TIME
             hour, minute = map(int, send_time_str.split(':'))
+            logger.info(f"⏰ Usando horário padrão do .env: {hour:02d}:{minute:02d} (horário de São Paulo)")
             return hour, minute
-        except:
+        except Exception as e:
+            logger.warning(f"⚠️ Erro ao parsear horário do .env: {e}. Usando padrão 06:00")
             return 6, 0  # Padrão: 06:00
     finally:
         db.close()
@@ -225,8 +231,11 @@ def run_scheduler():
     # Obter horário inicial
     hour, minute = get_send_time_from_db()
     last_config_check = now_brazil()
+    now_sp = now_brazil()
     
-    logger.info(f"Scheduler de devocionais iniciado. Envio agendado para {hour:02d}:{minute:02d} (horário de São Paulo)")
+    logger.info(f"Scheduler de devocionais iniciado. Envio agendado para {hour:02d}:{minute:02d} (horário de São Paulo - America/Sao_Paulo)")
+    logger.info(f"⏰ Horário atual em São Paulo: {now_sp.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+    logger.info(f"⏰ Timezone do sistema: {now_sp.tzinfo}")
     
     # Loop do scheduler - verifica a cada minuto
     while scheduler_running:
@@ -242,7 +251,8 @@ def run_scheduler():
                 if new_hour != hour or new_minute != minute:
                     old_time = f"{hour:02d}:{minute:02d}"
                     hour, minute = new_hour, new_minute
-                    logger.info(f"⏰ Horário de envio atualizado dinamicamente: {old_time} -> {hour:02d}:{minute:02d}")
+                    logger.info(f"⏰ Horário de envio atualizado dinamicamente: {old_time} -> {hour:02d}:{minute:02d} (horário de São Paulo)")
+                    logger.info(f"⏰ Horário atual em SP: {now_sp.strftime('%H:%M:%S %Z')}, Próximo envio: {hour:02d}:{minute:02d} SP")
                     # Resetar last_sent_date se mudou o horário para permitir envio no novo horário
                     if hasattr(run_scheduler, 'last_sent_date'):
                         logger.info(f"🔄 Resetando controle de envio para permitir envio no novo horário")
@@ -251,7 +261,7 @@ def run_scheduler():
             
             # Log de debug a cada hora para verificar funcionamento
             if current_minute == 0:
-                logger.info(f"⏰ Scheduler rodando. Horário atual SP: {current_hour:02d}:{current_minute:02d}, Horário agendado: {hour:02d}:{minute:02d}")
+                logger.info(f"⏰ Scheduler rodando. Horário atual SP: {current_hour:02d}:{current_minute:02d}, Horário agendado: {hour:02d}:{minute:02d} SP, Timezone: {now_sp.tzinfo}")
             
             # Se chegou no horário agendado (verifica a cada minuto)
             if current_hour == hour and current_minute == minute:
@@ -259,14 +269,15 @@ def run_scheduler():
                 last_sent = getattr(run_scheduler, 'last_sent_date', None)
                 today = now_sp.date()
                 
-                logger.info(f"🔔 Verificando envio: Horário atual {current_hour:02d}:{current_minute:02d} == Agendado {hour:02d}:{minute:02d}, Último envio: {last_sent}, Hoje: {today}")
+                logger.info(f"🔔 Verificando envio: Horário atual SP {current_hour:02d}:{current_minute:02d} == Agendado {hour:02d}:{minute:02d} SP, Último envio: {last_sent}, Hoje: {today}")
+                logger.info(f"⏰ Timezone atual: {now_sp.tzinfo}, Horário completo: {now_sp.strftime('%Y-%m-%d %H:%M:%S %Z')}")
                 
                 if last_sent != today:
                     logger.info(f"⏰ Horário de envio atingido ({hour:02d}:{minute:02d} SP - {now_sp.strftime('%Y-%m-%d %H:%M:%S %Z')}). Iniciando envio...")
                     try:
                         send_daily_devocional()
                         run_scheduler.last_sent_date = today
-                        logger.info(f"✅ Envio automático concluído. Próximo envio: amanhã às {hour:02d}:{minute:02d}")
+                        logger.info(f"✅ Envio automático concluído. Próximo envio: amanhã às {hour:02d}:{minute:02d} (horário de São Paulo)")
                     except Exception as e:
                         logger.error(f"❌ Erro ao executar envio automático: {e}", exc_info=True)
                 else:

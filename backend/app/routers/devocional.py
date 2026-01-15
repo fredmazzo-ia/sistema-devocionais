@@ -650,8 +650,8 @@ async def send_custom_message(
                     status=result_data["status"],
                     message_id=result_data.get("message_id"),
                     error_message=result_data.get("error"),
-                    retry_count=0,
-                    message_type="mensagem_personalizada"
+                    retry_count=0
+                    # message_type="mensagem_personalizada"  # Descomentar após executar migrate_add_message_type.sql
                 )
                 db.add(envio)
                 

@@ -201,3 +201,21 @@ def handle_message_sent(db: Session, phone: str, message_id: Optional[str] = Non
     engagement.total_sent += 1
     engagement.last_sent_date = now_brazil_naive()
     db.commit()
+
+
+def handle_message_response(db: Session, phone: str, message_id: Optional[str] = None):
+    """
+    Mensagem recebida (resposta do contato): +10 pontos
+    Atualiza engajamento quando contato responde
+    """
+    engagement = get_or_create_engagement(db, phone)
+    
+    engagement.total_responded += 1
+    engagement.last_response_date = now_brazil_naive()
+    engagement.consecutive_no_response = 0  # Reset contador de não resposta
+    
+    # Bônus por resposta
+    update_engagement_points(
+        db, phone, "message_response", BONUS_RESPONSE,
+        reason="Contato respondeu mensagem", message_id=message_id
+    )

@@ -107,6 +107,11 @@ async def receive_message_status(
         logger.info(f"🔔 Webhook recebido: event={event}, instance={instance_name}")
         logger.info(f"📦 Body completo recebido: {json.dumps(body, indent=2, default=str)}")
         
+        # Log específico para status de mensagens
+        if event in ["messages.update", "message.ack"] or body.get("MessageUpdate"):
+            status_info = data.get("status") if isinstance(data, dict) else "N/A"
+            logger.info(f"📊 Status detectado no webhook: {status_info}")
+        
         # REGISTRAR WEBHOOK EVENT NA TABELA DE AUDITORIA
         try:
             # Tratar caso onde data é uma lista (ex: chats.upsert)
@@ -153,9 +158,28 @@ async def receive_message_status(
             # Não falhar o webhook por causa do audit
         
         # Verificar se é mensagem recebida (para processar consentimento)
+        # Pode vir em diferentes formatos: messages.upsert, messages.create, ou dentro de data
+        is_incoming_message = False
         if event == "messages.upsert" or event == "messages.create":
+            is_incoming_message = True
+        elif isinstance(data, dict) and "message" in data:
+            # Pode ser que a mensagem venha dentro de data
+            is_incoming_message = True
+        elif isinstance(data, list) and len(data) > 0:
+            # Verificar se algum item da lista tem message
+            for item in data:
+                if isinstance(item, dict) and "message" in item:
+                    is_incoming_message = True
+                    break
+        
+        if is_incoming_message:
+            logger.info(f"📩 Evento de mensagem recebida detectado: event={event}, is_incoming={is_incoming_message}")
             # Processar mensagem recebida (pode ser resposta de consentimento)
-            await process_incoming_message(db, body, instance_name)
+            try:
+                await process_incoming_message(db, body, instance_name)
+                logger.info(f"✅ Mensagem recebida processada com sucesso")
+            except Exception as e:
+                logger.error(f"❌ Erro ao processar mensagem recebida: {e}", exc_info=True)
             return {
                 "success": True,
                 "message": "Mensagem recebida processada",
@@ -764,7 +788,7 @@ async def process_messages_update(
         # Depois extrair o telefone do banco, pois o webhook pode não ter remoteJid quando é READ
         envio = None
         
-        # Buscar pelo keyId primeiro (este é o que salvamos quando enviamos)
+        # Buscar pelo keyId primeiro (este é o que salvamos quando enviamos - key.id da resposta)
         if key_id:
             envio = db.query(DevocionalEnvio).filter(
                 DevocionalEnvio.message_id == key_id
@@ -779,6 +803,24 @@ async def process_messages_update(
             ).first()
             if envio:
                 logger.info(f"✅ Encontrado envio pelo messageId: {message_id_webhook}")
+        
+        # Se ainda não encontrou, tentar buscar pelo telefone e status pending (última mensagem enviada)
+        if not envio and remote_jid:
+            phone_temp = remote_jid.split("@")[0].split(":")[0] if "@" in remote_jid else remote_jid.split(":")[0]
+            if phone_temp:
+                # Buscar última mensagem enviada para este telefone com status pending
+                envio = db.query(DevocionalEnvio).filter(
+                    DevocionalEnvio.recipient_phone == phone_temp,
+                    DevocionalEnvio.message_status == "pending"
+                ).order_by(DevocionalEnvio.sent_at.desc()).first()
+                if envio:
+                    logger.warning(f"⚠️ Envio encontrado pelo telefone e status pending: {phone_temp}, message_id={envio.message_id}")
+                    logger.warning(f"⚠️ ATENÇÃO: message_id no banco ({envio.message_id}) não corresponde ao keyId do webhook ({key_id})")
+                    # Atualizar message_id no banco com o keyId do webhook para futuras buscas
+                    if key_id:
+                        logger.info(f"🔄 Atualizando message_id no banco de {envio.message_id} para {key_id}")
+                        envio.message_id = key_id
+                        db.flush()
         
         # Extrair telefone: PRIMEIRO do banco (mais confiável), depois do webhook
         phone = None
@@ -807,19 +849,38 @@ async def process_messages_update(
             # Tentar buscar pelos últimos envios para debug
             recent_envios = db.query(DevocionalEnvio).order_by(
                 DevocionalEnvio.sent_at.desc()
-            ).limit(5).all()
+            ).limit(10).all()
             
-            logger.warning(f"⚠️ Envio não encontrado para message_id: {message_id} (keyId: {data.get('keyId')})")
-            logger.info(f"📋 Últimos 5 message_ids no banco:")
+            logger.error(f"❌ Envio não encontrado para message_id: {message_id} (keyId: {data.get('keyId')}, messageId: {message_id_webhook})")
+            logger.error(f"📋 Últimos 10 message_ids no banco:")
             for e in recent_envios:
-                logger.info(f"   - message_id: {e.message_id}, phone: {e.recipient_phone}, status: {e.message_status}")
+                logger.error(f"   - message_id: {e.message_id}, phone: {e.recipient_phone}, status: {e.message_status}, sent_at: {e.sent_at}")
             
-            return {
-                "error": f"Envio não encontrado para message_id: {message_id}",
-                "message_id_received": message_id,
-                "key_id": data.get("keyId"),
-                "recent_message_ids": [e.message_id for e in recent_envios if e.message_id]
-            }
+            # Tentar buscar pelo telefone e criar um registro temporário se necessário
+            if phone:
+                logger.warning(f"⚠️ Tentando buscar última mensagem enviada para {phone}...")
+                last_envio = db.query(DevocionalEnvio).filter(
+                    DevocionalEnvio.recipient_phone == phone
+                ).order_by(DevocionalEnvio.sent_at.desc()).first()
+                
+                if last_envio:
+                    logger.warning(f"⚠️ Encontrada última mensagem para {phone}: message_id={last_envio.message_id}, status={last_envio.message_status}")
+                    # Se a última mensagem está pending e o keyId não corresponde, pode ser que o message_id foi salvo errado
+                    if last_envio.message_status == "pending" and key_id:
+                        logger.warning(f"🔄 Atualizando message_id da última mensagem de {last_envio.message_id} para {key_id}")
+                        last_envio.message_id = key_id
+                        db.flush()
+                        envio = last_envio
+            
+            if not envio:
+                return {
+                    "error": f"Envio não encontrado para message_id: {message_id}",
+                    "message_id_received": message_id,
+                    "key_id": data.get("keyId"),
+                    "message_id_webhook": message_id_webhook,
+                    "phone": phone,
+                    "recent_message_ids": [e.message_id for e in recent_envios if e.message_id]
+                }
         
         # Converter timestamp para datetime
         from app.timezone_utils import now_brazil_naive
@@ -842,7 +903,8 @@ async def process_messages_update(
                 "status_received": status
             }
         
-        logger.info(f"📊 Processando status: {status} -> {mapped_status}")
+        logger.info(f"📊 Processando status: {status} -> {mapped_status} para message_id={message_id}, phone={phone}")
+        logger.info(f"📊 Status atual no banco: {envio.message_status}, delivered_at={envio.delivered_at}, read_at={envio.read_at}")
         
         # Atualizar status baseado no status recebido
         updated = False
@@ -860,7 +922,12 @@ async def process_messages_update(
             logger.info(f"✅ Mensagem {message_id} entregue para {phone}")
             
             # Atualizar engajamento: entregue mas não lido ainda
-            update_engagement_from_delivered(db, phone, True, message_id)
+            try:
+                logger.info(f"📊 Atualizando engajamento por DELIVERY_ACK para {phone}")
+                update_engagement_from_delivered(db, phone, True, message_id)
+                logger.info(f"✅ Engajamento atualizado com sucesso para {phone} (DELIVERED)")
+            except Exception as e:
+                logger.error(f"❌ Erro ao atualizar engajamento (DELIVERED): {e}", exc_info=True)
         
         elif status == "READ":
             # READ é o mais importante - sempre atualizar
@@ -877,7 +944,12 @@ async def process_messages_update(
                 logger.info(f"✅✅ Mensagem {message_id} LIDA por {phone}")
                 
                 # Atualizar engajamento no banco
-                update_engagement_from_read(db, phone, True, message_id)
+                try:
+                    logger.info(f"📊 Atualizando engajamento por READ para {phone}")
+                    update_engagement_from_read(db, phone, True, message_id)
+                    logger.info(f"✅ Engajamento atualizado com sucesso para {phone} (READ)")
+                except Exception as e:
+                    logger.error(f"❌ Erro ao atualizar engajamento (READ): {e}", exc_info=True)
             else:
                 logger.debug(f"ℹ️ Mensagem {message_id} já estava marcada como lida")
         
@@ -1035,17 +1107,26 @@ async def process_incoming_message(
                 message_obj.get("conversation") or
                 message_obj.get("extendedTextMessage", {}).get("text") or
                 message_obj.get("text") or
+                message_obj.get("messageText") or  # Formato alternativo
                 ""
             )
         
+        # Log detalhado para debug
+        logger.info(f"📩 Processando mensagem recebida: phone={phone}, from_me={from_me}, text_length={len(message_text)}")
+        
         if not message_text:
-            logger.debug(f"Mensagem recebida de {phone} sem texto, ignorando")
-            return
+            logger.warning(f"⚠️ Mensagem recebida de {phone} sem texto. message_obj keys: {list(message_obj.keys()) if isinstance(message_obj, dict) else 'N/A'}")
+            logger.debug(f"📋 Estrutura completa da mensagem: {json.dumps(message_data, indent=2, default=str)}")
+            # Não retornar - pode ser mensagem de mídia ou outro tipo, mas ainda pode ser resposta
+            message_text = "[mensagem sem texto]"  # Usar placeholder para processar consentimento
         
         # Verificar se é mensagem de resposta (não é de nós)
         from_me = key.get("fromMe", False) if isinstance(key, dict) else message_data.get("fromMe", False)
+        logger.info(f"🔍 Verificando mensagem: from_me={from_me}, phone={phone}")
+        
         if from_me:
             # É mensagem que enviamos, não processar
+            logger.debug(f"ℹ️ Mensagem de nós mesmos (from_me=True), ignorando processamento de consentimento")
             return
         
         logger.info(f"📩 Mensagem recebida de {phone}: {message_text[:50]}...")
@@ -1056,8 +1137,23 @@ async def process_incoming_message(
         
         if processed:
             logger.info(f"✅ Resposta de consentimento processada para {phone}")
+            # Atualizar engajamento quando recebe resposta de consentimento
+            try:
+                from app.engagement_service import handle_message_response
+                handle_message_response(db, phone, None)
+                logger.info(f"📊 Engajamento atualizado para {phone} (resposta de consentimento)")
+            except Exception as e:
+                logger.error(f"❌ Erro ao atualizar engajamento por resposta de consentimento: {e}", exc_info=True)
         else:
             logger.debug(f"ℹ️ Mensagem de {phone} não foi resposta de consentimento")
+            # Mesmo que não seja resposta de consentimento, é uma resposta do contato
+            # Atualizar engajamento por qualquer resposta recebida
+            try:
+                from app.engagement_service import handle_message_response
+                handle_message_response(db, phone, None)
+                logger.info(f"📊 Engajamento atualizado para {phone} (resposta recebida)")
+            except Exception as e:
+                logger.error(f"❌ Erro ao atualizar engajamento por resposta: {e}", exc_info=True)
             
     except Exception as e:
         logger.error(f"❌ Erro ao processar mensagem recebida: {e}", exc_info=True)

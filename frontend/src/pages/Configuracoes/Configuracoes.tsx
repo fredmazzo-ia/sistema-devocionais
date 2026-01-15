@@ -443,7 +443,7 @@ export default function Configuracoes() {
             <div className="config-item large">
               <div className="config-label">
                 <span>Horário de Envio</span>
-                <span title="O devocional será enviado automaticamente neste horário todos os dias">
+                <span title="O devocional será enviado automaticamente neste horário todos os dias (horário de São Paulo/Brasília)">
                   <Info size={14} className="info-icon" />
                 </span>
               </div>
@@ -456,7 +456,9 @@ export default function Configuracoes() {
                   onBlur={() => handleSave('schedule', config.schedule)}
                 />
               </div>
-              <p className="config-hint">O sistema enviará automaticamente todos os dias neste horário</p>
+              <p className="config-hint">
+                O sistema enviará automaticamente todos os dias neste horário (horário de São Paulo/Brasília - America/Sao_Paulo)
+              </p>
             </div>
           </div>
         </div>
