@@ -142,11 +142,27 @@ class InstanceManager:
         for inst in self.instances:
             if inst.enabled:
                 # Se nunca foi verificada, foi há mais de 5 minutos, ou está INACTIVE, verificar agora
-                should_check = (
-                    not inst.last_check 
-                    or (now - inst.last_check).total_seconds() > 300
-                    or inst.status == InstanceStatus.INACTIVE
-                )
+                should_check = False
+                if not inst.last_check:
+                    should_check = True
+                elif inst.status == InstanceStatus.INACTIVE:
+                    should_check = True
+                else:
+                    # Normalizar last_check para timezone-aware se necessário
+                    last_check = inst.last_check
+                    if last_check.tzinfo is None:
+                        # Se last_check é naive, assumir que é UTC e converter para timezone-aware
+                        from zoneinfo import ZoneInfo
+                        last_check = last_check.replace(tzinfo=ZoneInfo("UTC"))
+                        # Converter para timezone do Brasil para comparação
+                        last_check = last_check.astimezone(ZoneInfo("America/Sao_Paulo"))
+                    elif last_check.tzinfo != now.tzinfo:
+                        # Se timezones diferentes, converter last_check para o mesmo timezone de now
+                        last_check = last_check.astimezone(now.tzinfo)
+                    
+                    # Agora ambos são timezone-aware no mesmo timezone
+                    if (now - last_check).total_seconds() > 300:
+                        should_check = True
                 if should_check:
                     logger.info(f"🔍 Verificando saúde da instância {inst.name} (status atual: {inst.status.value})...")
                     was_inactive = inst.status == InstanceStatus.INACTIVE
@@ -333,7 +349,7 @@ class InstanceManager:
                 instance.status = InstanceStatus.ERROR
                 instance.last_error = f"Erro ao verificar instância: {error_msg}"
                 instance.error_count += 1
-                instance.last_check = datetime.now()
+                instance.last_check = now_brazil()
                 logger.error(f"Erro ao verificar {instance.name}: {error_msg}")
                 return False
             
@@ -345,7 +361,7 @@ class InstanceManager:
                     logger.warning(f"Resposta inesperada da API para {instance.name}: {type(instances_data)}")
                     instance.status = InstanceStatus.ERROR
                     instance.last_error = "Resposta da API não é uma lista"
-                    instance.last_check = datetime.now()
+                    instance.last_check = now_brazil()
                     return False
                 
                 # Procurar nossa instância (comparação case-insensitive e com/sem espaços)
@@ -509,7 +525,7 @@ class InstanceManager:
                         
                         # Método 3: Verificar se houve envios recentes (últimas 24h)
                         if instance.messages_sent_today > 0 or (instance.last_message_time and 
-                            (datetime.now() - instance.last_message_time).total_seconds() < 86400):
+                            (now_brazil() - instance.last_message_time).total_seconds() < 86400):
                             instance.status = InstanceStatus.ACTIVE
                             instance.error_count = 0
                             instance.last_check = now_brazil()
@@ -573,14 +589,14 @@ class InstanceManager:
                     logger.warning(f"Instância {instance.name} não encontrada na lista. Instâncias disponíveis: {[i.get('instanceName') or i.get('name') for i in instances_data]}")
                     instance.status = InstanceStatus.ERROR
                     instance.last_error = f"Instância não encontrada. Disponíveis: {[i.get('instanceName') or i.get('name') for i in instances_data]}"
-                    instance.last_check = datetime.now()
+                    instance.last_check = now_brazil()
                     return False
             
             else:
                 instance.status = InstanceStatus.ERROR
                 instance.last_error = f"HTTP {response.status_code}: {response.text[:200]}"
                 instance.error_count += 1
-                instance.last_check = datetime.now()
+                instance.last_check = now_brazil()
                 logger.error(f"Erro HTTP ao verificar {instance.name}: {response.status_code} - {response.text[:200]}")
                 return False
         
@@ -588,14 +604,14 @@ class InstanceManager:
             instance.status = InstanceStatus.ERROR
             instance.last_error = f"Erro de conexão: {str(e)}"
             instance.error_count += 1
-            instance.last_check = datetime.now()
+            instance.last_check = now_brazil()
             logger.error(f"Erro de conexão ao verificar saúde da instância {instance.name}: {e}")
             return False
         except Exception as e:
             instance.status = InstanceStatus.ERROR
             instance.last_error = str(e)
             instance.error_count += 1
-            instance.last_check = datetime.now()
+            instance.last_check = now_brazil()
             logger.error(f"Erro inesperado ao verificar saúde da instância {instance.name}: {e}", exc_info=True)
             return False
     
@@ -721,7 +737,7 @@ class InstanceManager:
                     if response.status_code in [200, 201]:
                         instance.display_name = name
                         instance.profile_configured = True
-                        instance.last_profile_config_attempt = datetime.now()
+                        instance.last_profile_config_attempt = now_brazil()
                         logger.info(f"Perfil da instância {instance.name} atualizado para: {name} (endpoint: {url})")
                         return True
                     elif response.status_code == 404:
@@ -744,7 +760,7 @@ class InstanceManager:
             if response.status_code in [200, 201]:
                 instance.display_name = name
                 instance.profile_configured = True
-                instance.last_profile_config_attempt = datetime.now()
+                instance.last_profile_config_attempt = now_brazil()
                 logger.info(f"Perfil da instância {instance.name} atualizado para: {name} (método POST)")
                 return True
             

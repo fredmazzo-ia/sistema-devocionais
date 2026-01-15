@@ -121,6 +121,9 @@ def send_daily_devocional():
                 elif "null value in column \"recipient_phone\"" in error_str or "recipient_phone.*not-null" in error_str.lower():
                     logger.warning(f"⚠️ Campo 'recipient_phone' é NOT NULL mas agendamento geral não precisa. Tentando tornar nullable...")
                     try:
+                        # IMPORTANTE: Fazer rollback primeiro para limpar a transação
+                        db.rollback()
+                        
                         # Tentar tornar nullable via SQL direto
                         from sqlalchemy import text
                         db.execute(text("ALTER TABLE agendamento_envios ALTER COLUMN recipient_phone DROP NOT NULL"))
