@@ -118,68 +118,69 @@ class InstanceService:
                 db_instance.api_url = config["api_url"]
                 db_instance.api_key = config["api_key"]
             
-            # Verificar status real da instância individualmente
-            real_status = self._check_instance_connection_state(instance_name, config)
-            
-            # Atualizar status baseado na verificação real
-            if real_status:
-                state = real_status.get('state', '').lower()
-                phone = real_status.get('phoneNumber') or real_status.get('phone') or real_status.get('number')
-                
-                # Determinar status baseado no estado REAL
-                if state in ['open', 'connected', 'ready']:
-                    db_instance.status = "active"
-                elif state in ['close', 'disconnected', 'logout']:
-                    db_instance.status = "inactive"
-                elif phone:
-                    # Se tem número mas estado não é claro, verificar mais
-                    # Se tem número E não está explicitamente desconectado, provavelmente está ativa
-                    if state not in ['close', 'disconnected', 'logout']:
-                        db_instance.status = "active"
-                    else:
-                        db_instance.status = "inactive"
-                else:
-                    # Sem número e estado desconhecido = provavelmente desconectada
-                    db_instance.status = "inactive"
-                
-                if phone:
-                    db_instance.phone_number = str(phone).strip()
-                else:
-                    db_instance.phone_number = None
+            # Usar dados diretamente do fetchInstances (mais confiável)
+            state = api_inst.get('state', 'unknown')
+            if isinstance(state, str):
+                state = state.lower().strip()
             else:
-                # Se não conseguiu verificar, usar dados da lista
-                state = api_inst.get('state', 'unknown').lower()
-                phone = (
-                    api_inst.get('phoneNumber') or 
-                    api_inst.get('phone') or 
-                    api_inst.get('number') or
-                    api_inst.get('jid', '').split('@')[0] if api_inst.get('jid') else None
-                )
-                
-                # Determinar status baseado no estado
-                if state in ['open', 'connected', 'ready']:
-                    db_instance.status = "active"
-                elif state in ['close', 'disconnected', 'logout']:
+                state = str(state).lower().strip() if state else 'unknown'
+            
+            phone = (
+                api_inst.get('phoneNumber') or 
+                api_inst.get('phone') or 
+                api_inst.get('number') or
+                (api_inst.get('jid', '').split('@')[0] if api_inst.get('jid') else None)
+            )
+            
+            # Determinar status baseado no estado e número
+            # Se tem número de telefone, provavelmente está conectada (mesmo que state seja unknown)
+            if phone:
+                # Tem número = está conectada (mesmo que state seja unknown)
+                db_instance.status = "active"
+                db_instance.phone_number = str(phone).strip()
+                logger.info(f"✅ {instance_name}: Tem número {phone} -> ACTIVE")
+            elif state in ['open', 'connected', 'ready']:
+                # Estado explícito de conectado
+                db_instance.status = "active"
+                db_instance.phone_number = None
+                logger.info(f"✅ {instance_name}: Estado '{state}' -> ACTIVE")
+            elif state in ['close', 'disconnected', 'logout']:
+                # Estado explícito de desconectado
+                db_instance.status = "inactive"
+                db_instance.phone_number = None
+                logger.info(f"⚠️ {instance_name}: Estado '{state}' -> INACTIVE")
+            elif state == 'unknown' or not state:
+                # Estado unknown sem número = provavelmente desconectada
+                # Mas verificar se tem QR code (se tem, está desconectada)
+                has_qrcode = bool(api_inst.get('qrcode'))
+                if has_qrcode:
                     db_instance.status = "inactive"
-                elif phone and state not in ['close', 'disconnected', 'logout']:
-                    db_instance.status = "active"
-                    db_instance.phone_number = str(phone).strip()
+                    logger.info(f"⚠️ {instance_name}: Estado unknown com QR code -> INACTIVE")
                 else:
+                    # Sem QR code e sem número = pode estar conectada mas sem número ainda
+                    # Por segurança, marcar como inactive
                     db_instance.status = "inactive"
-                    db_instance.phone_number = None
+                    logger.info(f"⚠️ {instance_name}: Estado unknown sem número e sem QR -> INACTIVE")
+                db_instance.phone_number = None
+            else:
+                # Qualquer outro estado = tratar como desconectada
+                db_instance.status = "inactive"
+                db_instance.phone_number = None
+                logger.info(f"⚠️ {instance_name}: Estado '{state}' desconhecido -> INACTIVE")
             
             db_instance.last_check = now_brazil()
             synced_instances.append(db_instance)
         
-        # Marcar instâncias que não existem mais na Evolution API como inactive
+        # Marcar instâncias que não existem mais na Evolution API como disabled (não aparecerão na lista)
         instances_not_in_api = db_instance_names - api_instance_names
         for instance_name in instances_not_in_api:
             db_instance = self.db.query(EvolutionInstanceConfig).filter(
                 EvolutionInstanceConfig.name == instance_name
             ).first()
             if db_instance:
-                logger.warning(f"⚠️ Instância {instance_name} não encontrada na Evolution API. Marcando como inactive.")
+                logger.warning(f"⚠️ Instância {instance_name} não encontrada na Evolution API. Desabilitando.")
                 db_instance.status = "inactive"
+                db_instance.enabled = False  # Desabilitar para não aparecer na lista
                 db_instance.last_check = now_brazil()
                 synced_instances.append(db_instance)
         
@@ -329,32 +330,51 @@ class InstanceService:
         if not instance:
             return None
         
-        # Verificar status real da instância
+        # Buscar instância diretamente do fetchInstances
         config = self.get_evolution_api_config()
-        real_status = self._check_instance_connection_state(name, config)
+        api_instances = self.fetch_instances_from_evolution_api()
         
-        if real_status:
-            state = real_status.get('state', '').lower()
-            phone = real_status.get('phoneNumber') or real_status.get('phone') or real_status.get('number')
+        # Procurar a instância na lista
+        api_instance = None
+        for api_inst in api_instances:
+            instance_name = api_inst.get('instanceName') or api_inst.get('name')
+            if instance_name == name:
+                api_instance = api_inst
+                break
+        
+        if api_instance:
+            state = api_instance.get('state', 'unknown')
+            if isinstance(state, str):
+                state = state.lower().strip()
+            else:
+                state = str(state).lower().strip() if state else 'unknown'
             
-            # Determinar status baseado no estado REAL
-            if state in ['open', 'connected', 'ready']:
+            phone = (
+                api_instance.get('phoneNumber') or 
+                api_instance.get('phone') or 
+                api_instance.get('number') or
+                (api_instance.get('jid', '').split('@')[0] if api_instance.get('jid') else None)
+            )
+            
+            # Mesma lógica de sincronização
+            if phone:
                 instance.status = "active"
+                instance.phone_number = str(phone).strip()
+            elif state in ['open', 'connected', 'ready']:
+                instance.status = "active"
+                instance.phone_number = None
             elif state in ['close', 'disconnected', 'logout']:
                 instance.status = "inactive"
-            elif phone:
-                if state not in ['close', 'disconnected', 'logout']:
-                    instance.status = "active"
-                else:
-                    instance.status = "inactive"
-                instance.phone_number = str(phone).strip()
+                instance.phone_number = None
             else:
-                instance.status = "inactive"
+                has_qrcode = bool(api_instance.get('qrcode'))
+                instance.status = "inactive" if has_qrcode else "inactive"
                 instance.phone_number = None
         else:
-            # Se não conseguiu verificar, marcar como unknown
-            logger.warning(f"⚠️ Não foi possível verificar status real de {name}")
-            instance.status = "unknown"
+            # Instância não encontrada na Evolution API
+            logger.warning(f"⚠️ Instância {name} não encontrada na Evolution API")
+            instance.status = "inactive"
+            instance.enabled = False
         
         instance.last_check = now_brazil()
         self.db.commit()
