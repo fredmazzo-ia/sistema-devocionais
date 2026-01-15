@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from app.database import get_db, DevocionalEnvio, DevocionalContato, Devocional
 from app.devocional_service import DevocionalService
+from app.devocional_service_v2 import stop_bulk_sending, reset_stop_bulk_sending, is_bulk_sending_stopped
 from app.devocional_integration import devocional_integration
 from app.config import settings
 from datetime import datetime
@@ -1490,5 +1491,57 @@ async def get_devocional_by_id(
         raise
     except Exception as e:
         logger.error(f"Erro ao buscar devocional por ID: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
+@router.post("/stop-sending")
+async def stop_sending():
+    """
+    Para o envio em massa em andamento
+    """
+    try:
+        stop_bulk_sending()
+        logger.warning("🛑 Comando de parada de envio em massa recebido")
+        return {
+            "success": True,
+            "message": "Comando de parada enviado. O envio será interrompido no próximo contato.",
+            "stopped": is_bulk_sending_stopped()
+        }
+    except Exception as e:
+        logger.error(f"Erro ao parar envio: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
+@router.post("/reset-stop-sending")
+async def reset_stop_sending():
+    """
+    Reseta a flag de parada de envio
+    """
+    try:
+        reset_stop_bulk_sending()
+        logger.info("✅ Flag de parada de envio resetada")
+        return {
+            "success": True,
+            "message": "Flag de parada resetada. Novos envios podem ser iniciados.",
+            "stopped": is_bulk_sending_stopped()
+        }
+    except Exception as e:
+        logger.error(f"Erro ao resetar flag de parada: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
+
+
+@router.get("/sending-status")
+async def get_sending_status():
+    """
+    Verifica se há envio em massa em andamento e se está parado
+    """
+    try:
+        return {
+            "success": True,
+            "stopped": is_bulk_sending_stopped(),
+            "message": "Envio parado" if is_bulk_sending_stopped() else "Envio pode ser iniciado"
+        }
+    except Exception as e:
+        logger.error(f"Erro ao verificar status: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Erro: {str(e)}")
 

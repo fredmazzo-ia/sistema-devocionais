@@ -45,6 +45,26 @@ class MessageResult:
             self.timestamp = now_brazil_naive()
 
 
+# Flag global para parar envio em massa
+_stop_bulk_sending = False
+
+def stop_bulk_sending():
+    """Para o envio em massa em andamento"""
+    global _stop_bulk_sending
+    _stop_bulk_sending = True
+    logger.warning("🛑 Flag de parada de envio em massa ativada")
+
+def reset_stop_bulk_sending():
+    """Reseta a flag de parada"""
+    global _stop_bulk_sending
+    _stop_bulk_sending = False
+    logger.info("✅ Flag de parada de envio em massa resetada")
+
+def is_bulk_sending_stopped() -> bool:
+    """Verifica se o envio em massa deve ser parado"""
+    return _stop_bulk_sending
+
+
 class DevocionalServiceV2:
     """
     Serviço V2 para envio de devocionais via Evolution API
@@ -500,6 +520,9 @@ class DevocionalServiceV2:
         Envia devocionais para uma lista de contatos com delay entre envios
         Distribui automaticamente entre instâncias disponíveis
         """
+        # Resetar flag de parada no início de cada envio
+        reset_stop_bulk_sending()
+        
         results = []
         delay_time = delay if delay is not None else self.delay_between_messages
         
@@ -534,6 +557,12 @@ class DevocionalServiceV2:
                 inst.max_messages_per_day = daily_limit
         
         for i, contact in enumerate(contacts, 1):
+            # Verificar se deve parar o envio
+            if is_bulk_sending_stopped():
+                logger.error("🛑 ENVIO EM MASSA PARADO PELO USUÁRIO")
+                logger.error(f"   Processados: {i-1}/{len(contacts)}, Faltam: {len(contacts) - (i-1)}")
+                break
+            
             phone = contact.get('phone', '')
             name = contact.get('name')
             contact_id = contact.get('id')

@@ -150,8 +150,12 @@ def send_daily_devocional():
                     agendamento = None
                     logger.warning(f"⚠️ Continuando envio sem registro de agendamento")
             
+            # Criar serviço com sessão do banco para garantir que use a mesma sessão
+            devocional_service_with_db = DevocionalServiceV2(db=db)
+            
             # Enviar mensagens
-            results = devocional_service.send_bulk_devocionais(
+            logger.info(f"🚀 Iniciando envio em massa para {len(contacts_list)} contatos...")
+            results = devocional_service_with_db.send_bulk_devocionais(
                 contacts=contacts_list,
                 message=message,
                 delay=None  # Usa delay padrão
@@ -161,7 +165,71 @@ def send_daily_devocional():
             sent = sum(1 for r in results if r.success)
             failed = sum(1 for r in results if not r.success)
             
-            logger.info(f"Envio automático concluído: {sent} enviadas, {failed} falharam")
+            logger.info(f"📊 Envio automático concluído: {sent} enviadas, {failed} falharam, {len(results)} processados")
+            
+            # Registrar envios no banco e atualizar contatos
+            # IMPORTANTE: Salvar imediatamente após enviar para garantir que os webhooks encontrem os message_ids
+            envios_salvos = 0
+            envios_falhados = 0
+            
+            try:
+                for i, result in enumerate(results):
+                    if i < len(contacts):
+                        contact = contacts[i]
+                        
+                        try:
+                            # Registrar envio no banco IMEDIATAMENTE após cada envio
+                            envio = DevocionalEnvio(
+                                devocional_id=devocional_id,
+                                recipient_phone=contact.phone,
+                                recipient_name=contact.name,
+                                message_text=message,
+                                sent_at=result.timestamp.replace(tzinfo=None) if result.timestamp else now_brazil_naive(),
+                                status=result.status.value,
+                                message_id=result.message_id,  # Este é o keyId que vem do webhook
+                                error_message=result.error,
+                                retry_count=result.retry_count,
+                                instance_name=result.instance_name
+                                # message_type="devocional_agendado"  # Descomentar após executar migrate_add_message_type.sql
+                            )
+                            db.add(envio)
+                            
+                            # Atualizar contato
+                            if result.success:
+                                contact.last_sent = result.timestamp.replace(tzinfo=None) if result.timestamp else now_brazil_naive()
+                                contact.total_sent += 1
+                                envios_salvos += 1
+                                
+                                # IMPORTANTE: Fazer commit imediato para cada envio bem-sucedido
+                                # Isso garante que o webhook encontre o message_id no banco
+                                try:
+                                    db.commit()
+                                    logger.debug(f"💾 Envio {i+1} salvo imediatamente: phone={contact.phone}, message_id={result.message_id}")
+                                except Exception as commit_error:
+                                    logger.error(f"❌ Erro ao fazer commit do envio {i+1}: {commit_error}", exc_info=True)
+                                    db.rollback()
+                                    envios_falhados += 1
+                            else:
+                                envios_falhados += 1
+                                # Fazer commit mesmo para falhas para manter consistência
+                                try:
+                                    db.commit()
+                                except Exception:
+                                    db.rollback()
+                            
+                        except Exception as envio_error:
+                            logger.error(f"❌ Erro ao salvar envio {i+1} para {contact.phone}: {envio_error}", exc_info=True)
+                            envios_falhados += 1
+                            db.rollback()
+                            # Continuar com próximo envio
+                            continue
+                
+                logger.info(f"✅ {envios_salvos} envios salvos no banco de dados, {envios_falhados} falharam ao salvar")
+                
+            except Exception as save_error:
+                logger.error(f"❌ Erro ao salvar envios no banco: {save_error}", exc_info=True)
+                db.rollback()
+                logger.error(f"⚠️ Envios NÃO foram salvos no banco devido ao erro acima")
             
             # Atualizar agendamento após envio
             # O modelo AgendamentoEnvio só tem campos básicos: devocional_id, scheduled_for, sent, sent_at
@@ -174,35 +242,6 @@ def send_daily_devocional():
                 except Exception as e:
                     logger.warning(f"⚠️ Erro ao atualizar agendamento: {e}. Continuando...")
                     db.rollback()
-            
-            # Registrar envios no banco e atualizar contatos
-            for i, result in enumerate(results):
-                if i < len(contacts):
-                    contact = contacts[i]
-                    
-                    # Registrar envio no banco
-                    envio = DevocionalEnvio(
-                        devocional_id=devocional_id,
-                        recipient_phone=contact.phone,
-                        recipient_name=contact.name,
-                        message_text=message,
-                        sent_at=result.timestamp.replace(tzinfo=None) if result.timestamp else now_brazil_naive(),
-                        status=result.status.value,
-                        message_id=result.message_id,
-                        error_message=result.error,
-                        retry_count=result.retry_count,
-                        instance_name=result.instance_name
-                        # message_type="devocional_agendado"  # Descomentar após executar migrate_add_message_type.sql
-                    )
-                    db.add(envio)
-                    
-                    # Atualizar contato
-                    if result.success:
-                        contact.last_sent = result.timestamp.replace(tzinfo=None) if result.timestamp else now_brazil_naive()
-                        contact.total_sent += 1
-            
-            db.commit()
-            logger.info(f"✅ Agendamentos e envios registrados no banco de dados")
         
         finally:
             db.close()
