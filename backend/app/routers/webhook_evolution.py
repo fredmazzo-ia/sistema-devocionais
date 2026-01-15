@@ -1078,7 +1078,7 @@ async def process_incoming_message(
         instance_name: Nome da instância
     """
     try:
-        from app.consent_service import ConsentService
+        from app.consent_service import ConsentService, normalize_phone
         
         data = body.get("data", {})
         
@@ -1097,6 +1097,9 @@ async def process_incoming_message(
         
         # Extrair telefone
         phone = remote_jid.split("@")[0].split(":")[0] if "@" in remote_jid else remote_jid.split(":")[0]
+        
+        # Verificar se é mensagem de resposta (não é de nós) - ANTES de processar texto
+        from_me = key.get("fromMe", False) if isinstance(key, dict) else message_data.get("fromMe", False)
         
         # Extrair texto da mensagem
         message_text = ""
@@ -1120,8 +1123,6 @@ async def process_incoming_message(
             # Não retornar - pode ser mensagem de mídia ou outro tipo, mas ainda pode ser resposta
             message_text = "[mensagem sem texto]"  # Usar placeholder para processar consentimento
         
-        # Verificar se é mensagem de resposta (não é de nós)
-        from_me = key.get("fromMe", False) if isinstance(key, dict) else message_data.get("fromMe", False)
         logger.info(f"🔍 Verificando mensagem: from_me={from_me}, phone={phone}")
         
         if from_me:
@@ -1131,27 +1132,31 @@ async def process_incoming_message(
         
         logger.info(f"📩 Mensagem recebida de {phone}: {message_text[:50]}...")
         
+        # Normalizar telefone antes de processar consentimento
+        phone_normalized = normalize_phone(phone)
+        logger.info(f"📞 Telefone normalizado: {phone} -> {phone_normalized}")
+        
         # Processar como possível resposta de consentimento
         consent_service = ConsentService(db)
-        processed = consent_service.process_consent_response(phone, message_text)
+        processed = consent_service.process_consent_response(phone_normalized, message_text)
         
         if processed:
-            logger.info(f"✅ Resposta de consentimento processada para {phone}")
+            logger.info(f"✅ Resposta de consentimento processada para {phone_normalized} (original: {phone})")
             # Atualizar engajamento quando recebe resposta de consentimento
             try:
                 from app.engagement_service import handle_message_response
-                handle_message_response(db, phone, None)
-                logger.info(f"📊 Engajamento atualizado para {phone} (resposta de consentimento)")
+                handle_message_response(db, phone_normalized, None)
+                logger.info(f"📊 Engajamento atualizado para {phone_normalized} (resposta de consentimento)")
             except Exception as e:
                 logger.error(f"❌ Erro ao atualizar engajamento por resposta de consentimento: {e}", exc_info=True)
         else:
-            logger.debug(f"ℹ️ Mensagem de {phone} não foi resposta de consentimento")
+            logger.debug(f"ℹ️ Mensagem de {phone_normalized} não foi resposta de consentimento")
             # Mesmo que não seja resposta de consentimento, é uma resposta do contato
             # Atualizar engajamento por qualquer resposta recebida
             try:
                 from app.engagement_service import handle_message_response
-                handle_message_response(db, phone, None)
-                logger.info(f"📊 Engajamento atualizado para {phone} (resposta recebida)")
+                handle_message_response(db, phone_normalized, None)
+                logger.info(f"📊 Engajamento atualizado para {phone_normalized} (resposta recebida)")
             except Exception as e:
                 logger.error(f"❌ Erro ao atualizar engajamento por resposta: {e}", exc_info=True)
             
