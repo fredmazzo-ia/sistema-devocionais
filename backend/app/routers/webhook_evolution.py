@@ -113,6 +113,7 @@ async def receive_message_status(
             logger.info(f"📊 Status detectado no webhook: {status_info}")
         
         # REGISTRAR WEBHOOK EVENT NA TABELA DE AUDITORIA
+        webhook_event = None
         try:
             # Tratar caso onde data é uma lista (ex: chats.upsert)
             if isinstance(data, list):
@@ -199,7 +200,23 @@ async def receive_message_status(
         # Verificar se é formato messages.update (formato mais comum da Evolution API)
         if event == "messages.update":
             logger.info(f"📨 Detectado evento messages.update")
-            result = await process_messages_update(db, instance_name, data)
+            result = await process_messages_update(db, instance_name, data, webhook_event_id=webhook_event.id if webhook_event else None)
+            # Atualizar webhook_event como processado se processou com sucesso
+            if webhook_event and result.get("success") and not result.get("error"):
+                try:
+                    webhook_event.processed = True
+                    webhook_event.processed_at = now_brazil_naive()
+                    webhook_event.updated_message_status = result.get("status_updated") or result.get("status")
+                    db.commit()
+                    logger.debug(f"✅ Webhook event {webhook_event.id} marcado como processado")
+                except Exception as e:
+                    logger.error(f"❌ Erro ao atualizar webhook_event: {e}", exc_info=True)
+            elif webhook_event and result.get("error"):
+                try:
+                    webhook_event.processing_error = str(result.get("error"))
+                    db.commit()
+                except Exception as e:
+                    logger.error(f"❌ Erro ao atualizar webhook_event com erro: {e}", exc_info=True)
             return {
                 "success": True, 
                 "message": "Webhook processado (formato messages.update)",
@@ -774,7 +791,12 @@ async def process_messages_update(
         remote_jid = data.get("remoteJid", "")
         status = data.get("status", "")
         
-        logger.info(f"📨 Processando messages.update: messageId={message_id_webhook}, keyId={key_id}, status={status}, remote_jid={remote_jid}")
+        # Detectar se pode ser WhatsApp Web (READ sem remoteJid é comum no WhatsApp Web)
+        is_whatsapp_web = (status == "READ" and not remote_jid)
+        if is_whatsapp_web:
+            logger.info(f"🌐 Possível evento READ do WhatsApp Web detectado (sem remoteJid)")
+        
+        logger.info(f"📨 Processando messages.update: messageId={message_id_webhook}, keyId={key_id}, status={status}, remote_jid={remote_jid or 'N/A'}")
         
         if not key_id and not message_id_webhook:
             logger.warning(f"⚠️ messages.update sem messageId/keyId, ignorando. Data: {data}")
@@ -785,7 +807,7 @@ async def process_messages_update(
             return {"error": "status não encontrado", "data": data}
         
         # IMPORTANTE: Buscar o envio PRIMEIRO pelo message_id (keyId ou messageId)
-        # Depois extrair o telefone do banco, pois o webhook pode não ter remoteJid quando é READ
+        # Depois extrair o telefone do banco, pois o webhook pode não ter remoteJid quando é READ (WhatsApp Web)
         envio = None
         
         # Buscar pelo keyId primeiro (este é o que salvamos quando enviamos - key.id da resposta)
@@ -803,6 +825,20 @@ async def process_messages_update(
             ).first()
             if envio:
                 logger.info(f"✅ Encontrado envio pelo messageId: {message_id_webhook}")
+        
+        # Se ainda não encontrou e é READ (WhatsApp Web), buscar por qualquer envio recente com este message_id
+        # Isso é importante porque WhatsApp Web pode não enviar remoteJid
+        if not envio and is_whatsapp_web and key_id:
+            logger.info(f"🔍 WhatsApp Web: Buscando envio recente com keyId {key_id} (sem remoteJid)...")
+            # Buscar qualquer envio recente (últimas 24h) que possa corresponder
+            from datetime import timedelta
+            recent_cutoff = now_brazil_naive() - timedelta(hours=24)
+            envio = db.query(DevocionalEnvio).filter(
+                DevocionalEnvio.message_id == key_id,
+                DevocionalEnvio.sent_at >= recent_cutoff
+            ).order_by(DevocionalEnvio.sent_at.desc()).first()
+            if envio:
+                logger.info(f"✅ Encontrado envio recente pelo keyId (WhatsApp Web): {key_id}, phone={envio.recipient_phone}")
         
         # Se ainda não encontrou, tentar buscar pelo telefone e status pending (última mensagem enviada)
         if not envio and remote_jid:
@@ -871,6 +907,27 @@ async def process_messages_update(
                         last_envio.message_id = key_id
                         db.flush()
                         envio = last_envio
+            
+            # Se ainda não encontrou e é READ do WhatsApp Web, tentar busca mais ampla
+            if not envio and is_whatsapp_web and key_id:
+                logger.warning(f"🌐 WhatsApp Web READ: Tentando busca mais ampla para keyId {key_id}...")
+                # Buscar qualquer envio recente (últimas 48h) que possa corresponder, mesmo sem telefone
+                from datetime import timedelta
+                recent_cutoff = now_brazil_naive() - timedelta(hours=48)
+                # Tentar buscar por envios recentes que ainda não foram lidos
+                last_envio = db.query(DevocionalEnvio).filter(
+                    DevocionalEnvio.sent_at >= recent_cutoff,
+                    DevocionalEnvio.message_status.in_(["pending", "sent", "delivered"])
+                ).order_by(DevocionalEnvio.sent_at.desc()).first()
+                
+                if last_envio:
+                    logger.warning(f"🌐 WhatsApp Web: Encontrado envio recente não lido: message_id={last_envio.message_id}, phone={last_envio.recipient_phone}")
+                    # Atualizar message_id se for diferente
+                    if last_envio.message_id != key_id and key_id:
+                        logger.warning(f"🔄 Atualizando message_id de {last_envio.message_id} para {key_id} (WhatsApp Web)")
+                        last_envio.message_id = key_id
+                        db.flush()
+                    envio = last_envio
             
             if not envio:
                 return {
