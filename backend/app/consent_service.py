@@ -188,13 +188,100 @@ class ConsentService:
                 "phone": phone
             }
     
-    def process_consent_response(self, phone: str, message_text: str) -> bool:
+    def _is_negative_response(self, message_lower: str) -> bool:
+        """
+        Detecta se a mensagem é uma negação de consentimento de forma inteligente.
+        
+        Distingue entre:
+        - "não quero mais receber" -> NEGAÇÃO
+        - "não vou desistir de Jesus" -> POSITIVA (não é negação)
+        - "não esperava que fosse tão bom" -> POSITIVA (não é negação)
+        
+        Args:
+            message_lower: Mensagem em minúsculas
+            
+        Returns:
+            True se for negação de consentimento, False caso contrário
+        """
+        import re
+        
+        # Palavras que indicam negação de consentimento quando aparecem após "não"
+        negative_keywords = [
+            'quero', 'quer', 'querer', 'querendo',
+            'receber', 'recebendo', 'receber mais',
+            'devocional', 'devocionais',
+            'continuar', 'continuando',
+            'parar', 'parando', 'parar de receber',
+            'cancelar', 'cancelando', 'cancelamento',
+            'obrigado', 'obrigada',
+            'não quero', 'nao quero',
+            'não receber', 'nao receber',
+            'parar de', 'cancelar recebimento'
+        ]
+        
+        # Frases positivas que contêm "não" mas não são negação
+        positive_patterns = [
+            r'não\s+vou\s+desistir',
+            r'não\s+esperava',
+            r'não\s+imaginava',
+            r'não\s+acredito\s+que',
+            r'não\s+poderia\s+ser\s+melhor',
+            r'não\s+tenho\s+palavras',
+            r'não\s+consigo\s+expressar',
+            r'não\s+é\s+possível',
+            r'não\s+é\s+verdade',
+            r'não\s+acredito',
+            r'não\s+parece\s+real',
+            r'não\s+vou\s+parar',
+            r'não\s+quero\s+parar',
+            r'não\s+quero\s+cancelar',
+            r'não\s+pretendo\s+parar',
+            r'não\s+pretendo\s+cancelar',
+            r'não\s+tenho\s+intenção\s+de\s+parar',
+            r'não\s+tenho\s+intenção\s+de\s+cancelar',
+            r'não\s+pretendo\s+deixar',
+            r'não\s+vou\s+deixar',
+            r'não\s+quero\s+deixar',
+        ]
+        
+        # Verificar se contém padrões positivos (que contêm "não" mas são positivos)
+        for pattern in positive_patterns:
+            if re.search(pattern, message_lower):
+                logger.debug(f"🔍 Mensagem contém padrão positivo: '{pattern}' - não é negação")
+                return False
+        
+        # Verificar respostas negativas simples e diretas
+        # Se a mensagem é apenas "não", "nao" ou "n" (palavra completa, sem outras palavras)
+        message_words = message_lower.strip().split()
+        if len(message_words) == 1 and message_words[0] in ['não', 'nao', 'n']:
+            logger.debug(f"🔍 Mensagem é negação simples: '{message_lower}'")
+            return True
+        
+        # Verificar se "não" ou "nao" aparece seguido de palavras-chave de negação
+        # Buscar padrão: "não" + (até 3 palavras) + palavra-chave negativa
+        negative_pattern = r'(não|nao)\s+(\w+\s+){0,3}?(' + '|'.join(negative_keywords) + ')'
+        if re.search(negative_pattern, message_lower):
+            logger.debug(f"🔍 Mensagem contém padrão de negação: '{message_lower}'")
+            return True
+        
+        # Verificar palavras de cancelamento diretas
+        direct_cancel = ['parar', 'cancelar', 'não obrigado', 'nao obrigado']
+        if any(cancel in message_lower for cancel in direct_cancel):
+            # Mas verificar se não está em contexto positivo
+            if not any(pos in message_lower for pos in ['não vou parar', 'não quero cancelar', 'não quero parar']):
+                logger.debug(f"🔍 Mensagem contém palavra de cancelamento: '{message_lower}'")
+                return True
+        
+        return False
+    
+    def process_consent_response(self, phone: str, message_text: str, instance_name: Optional[str] = None) -> bool:
         """
         Processa resposta de consentimento do contato
         
         Args:
             phone: Telefone do contato
             message_text: Texto da mensagem recebida
+            instance_name: Nome da instância que recebeu a mensagem (para usar na resposta)
             
         Returns:
             True se processou, False caso contrário
@@ -205,11 +292,10 @@ class ConsentService:
             # Verificar se é resposta de consentimento
             # Respostas positivas: sim, s, quero, quero sim, continuar, ok, tudo bem
             positive_responses = ['sim', 's', 'quero', 'quero sim', 'continuar', 'ok', 'tudo bem', 'claro', 'pode']
-            # Respostas negativas: não, nao, n, não quero, parar, cancelar
-            negative_responses = ['não', 'nao', 'n', 'não quero', 'nao quero', 'parar', 'cancelar', 'não obrigado']
             
+            # Detecção inteligente de negação
+            is_negative = self._is_negative_response(message_lower)
             is_positive = any(resp in message_lower for resp in positive_responses)
-            is_negative = any(resp in message_lower for resp in negative_responses)
             
             if not (is_positive or is_negative):
                 # Não é resposta de consentimento
@@ -259,8 +345,8 @@ class ConsentService:
                 
                 # Enviar mensagem informando que pode voltar a receber dizendo "sim"
                 try:
-                    logger.info(f"📤 Tentando enviar mensagem de negação para {phone}...")
-                    sent = self._send_denial_message(phone, contact.name if contact else None)
+                    logger.info(f"📤 Tentando enviar mensagem de negação para {phone} usando instância {instance_name or 'padrão'}...")
+                    sent = self._send_denial_message(phone, contact.name if contact else None, instance_name)
                     if sent:
                         logger.info(f"✅ Mensagem de negação enviada com sucesso para {phone}")
                     else:
@@ -309,19 +395,20 @@ class ConsentService:
             self.db.rollback()
             return False
     
-    def _send_denial_message(self, phone: str, name: Optional[str] = None) -> bool:
+    def _send_denial_message(self, phone: str, name: Optional[str] = None, instance_name: Optional[str] = None) -> bool:
         """
         Envia mensagem quando consentimento é negado
         
         Args:
             phone: Telefone do contato
             name: Nome do contato (opcional)
+            instance_name: Nome da instância que recebeu a mensagem (para usar a mesma)
             
         Returns:
             True se enviou com sucesso, False caso contrário
         """
         try:
-            logger.info(f"📤 Iniciando envio de mensagem de negação para {phone}")
+            logger.info(f"📤 Iniciando envio de mensagem de negação para {phone} usando instância: {instance_name or 'padrão'}")
             
             # Obter instância ativa para enviar mensagem
             from app.instance_manager import InstanceManager, InstanceStatus
@@ -335,18 +422,40 @@ class ConsentService:
                 logger.warning("⚠️ Nenhuma instância disponível para enviar mensagem de negação")
                 return False
             
-            # Buscar primeira instância ativa
             instance = None
-            for inst in instance_manager.instances:
-                if inst.enabled and inst.status == InstanceStatus.ACTIVE:
-                    instance = inst
-                    break
             
-            # Se não encontrou ativa, tentar qualquer instância habilitada (exceto bloqueada)
+            # PRIORIDADE 1: Usar a mesma instância que recebeu a mensagem (se fornecida)
+            if instance_name:
+                logger.info(f"🔍 Buscando instância específica: {instance_name}")
+                for inst in instance_manager.instances:
+                    # Comparar por nome ou api_instance_name
+                    inst_name = getattr(inst, 'api_instance_name', None) or inst.name
+                    if inst_name == instance_name and inst.enabled:
+                        instance = inst
+                        logger.info(f"✅ Instância encontrada: {inst_name} (status: {inst.status})")
+                        # Mesmo que não esteja ACTIVE, usar se não estiver BLOCKED
+                        if inst.status == InstanceStatus.BLOCKED:
+                            logger.warning(f"⚠️ Instância {inst_name} está bloqueada, tentando outra...")
+                            instance = None
+                        else:
+                            break
+            
+            # PRIORIDADE 2: Se não encontrou a instância específica ou não foi fornecida, buscar primeira instância ativa
             if not instance:
+                logger.info("🔍 Buscando primeira instância ativa...")
+                for inst in instance_manager.instances:
+                    if inst.enabled and inst.status == InstanceStatus.ACTIVE:
+                        instance = inst
+                        logger.info(f"✅ Instância ativa encontrada: {inst.name}")
+                        break
+            
+            # PRIORIDADE 3: Se não encontrou ativa, tentar qualquer instância habilitada (exceto bloqueada)
+            if not instance:
+                logger.info("🔍 Buscando qualquer instância habilitada...")
                 for inst in instance_manager.instances:
                     if inst.enabled and inst.status != InstanceStatus.BLOCKED:
                         instance = inst
+                        logger.info(f"✅ Instância habilitada encontrada: {inst.name} (status: {inst.status})")
                         break
             
             if not instance:

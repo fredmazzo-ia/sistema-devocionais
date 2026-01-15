@@ -1138,7 +1138,7 @@ async def process_incoming_message(
         
         # Processar como possível resposta de consentimento
         consent_service = ConsentService(db)
-        processed = consent_service.process_consent_response(phone_normalized, message_text)
+        processed = consent_service.process_consent_response(phone_normalized, message_text, instance_name)
         
         if processed:
             logger.info(f"✅ Resposta de consentimento processada para {phone_normalized} (original: {phone})")
