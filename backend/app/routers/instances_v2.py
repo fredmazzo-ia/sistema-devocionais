@@ -76,9 +76,15 @@ async def list_instances(
         service = InstanceService(db)
         instances = service.get_all_instances(sync=sync)
         
+        # Filtrar apenas instâncias habilitadas (enabled=True)
+        # Isso garante que instâncias removidas/desabilitadas não apareçam
+        enabled_instances = [inst for inst in instances if inst.enabled]
+        
+        logger.info(f"📊 Listando {len(enabled_instances)} instâncias habilitadas de {len(instances)} total")
+        
         # Converter instâncias para dict com last_check como string
         result = []
-        for inst in instances:
+        for inst in enabled_instances:
             inst_dict = {
                 "id": inst.id,
                 "name": inst.name,

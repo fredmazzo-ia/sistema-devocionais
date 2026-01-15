@@ -121,11 +121,38 @@ class DevocionalServiceV2:
         # A solução é usar vCard para que destinatários salvem o contato
         
         # Configurações de rate limiting (agora por instância)
-        self.delay_between_messages = settings.DELAY_BETWEEN_MESSAGES
-        
-        # Retry configuration
-        self.max_retries = settings.MAX_RETRIES
-        self.retry_delay = settings.RETRY_DELAY
+        # Ler do banco se disponível, senão usar .env
+        if db is not None:
+            from app.database import SystemConfig
+            try:
+                delay_config = db.query(SystemConfig).filter(SystemConfig.key == "DELAY_BETWEEN_MESSAGES").first()
+                if delay_config and delay_config.value:
+                    self.delay_between_messages = float(delay_config.value)
+                    logger.info(f"✅ Delay entre mensagens carregado do banco: {self.delay_between_messages}s")
+                else:
+                    self.delay_between_messages = settings.DELAY_BETWEEN_MESSAGES
+                    logger.debug(f"Delay entre mensagens usando padrão do .env: {self.delay_between_messages}s")
+                
+                retry_config = db.query(SystemConfig).filter(SystemConfig.key == "MAX_RETRIES").first()
+                if retry_config and retry_config.value:
+                    self.max_retries = int(retry_config.value)
+                else:
+                    self.max_retries = settings.MAX_RETRIES
+                
+                retry_delay_config = db.query(SystemConfig).filter(SystemConfig.key == "RETRY_DELAY").first()
+                if retry_delay_config and retry_delay_config.value:
+                    self.retry_delay = float(retry_delay_config.value)
+                else:
+                    self.retry_delay = settings.RETRY_DELAY
+            except Exception as e:
+                logger.warning(f"Erro ao ler configurações do banco, usando .env: {e}")
+                self.delay_between_messages = settings.DELAY_BETWEEN_MESSAGES
+                self.max_retries = settings.MAX_RETRIES
+                self.retry_delay = settings.RETRY_DELAY
+        else:
+            self.delay_between_messages = settings.DELAY_BETWEEN_MESSAGES
+            self.max_retries = settings.MAX_RETRIES
+            self.retry_delay = settings.RETRY_DELAY
         
         # Configurações de vCard
         self.send_vcard_to_new = settings.SEND_VCARD_TO_NEW_CONTACTS

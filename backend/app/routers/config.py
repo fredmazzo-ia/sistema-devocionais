@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from app.database import get_db, User, SystemConfig
 from app.config import settings
 from app.auth import get_current_user
+from app.timezone_utils import now_brazil
 import logging
 import os
 
@@ -58,34 +59,50 @@ def _get_send_time_from_db(db: Session) -> str:
     return settings.DEVOCIONAL_SEND_TIME
 
 
+def _get_config_from_db(db: Session, key: str, default_value, value_type=str):
+    """Helper para obter configuração do banco com fallback para .env"""
+    try:
+        db_config = db.query(SystemConfig).filter(SystemConfig.key == key).first()
+        if db_config and db_config.value:
+            if value_type == bool:
+                return db_config.value.lower() == "true"
+            elif value_type == int:
+                return int(db_config.value)
+            elif value_type == float:
+                return float(db_config.value)
+            else:
+                return db_config.value
+    except Exception as e:
+        logger.debug(f"Erro ao buscar {key} do banco: {e}. Usando padrão do .env")
+    return default_value
+
+
 @router.get("/")
 async def get_config(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Retorna todas as configurações do sistema"""
-    from app.timezone_utils import now_brazil
-    
+    """Retorna todas as configurações do sistema (lê do banco quando disponível)"""
     send_time = _get_send_time_from_db(db)
     now_sp = now_brazil()
     
     return {
         "shield": {
-            "enabled": settings.SHIELD_ENABLED,
-            "delay_variation": settings.DELAY_VARIATION,
-            "break_interval": settings.BREAK_INTERVAL,
-            "break_duration_min": settings.BREAK_DURATION_MIN,
-            "break_duration_max": settings.BREAK_DURATION_MAX,
-            "min_engagement_score": settings.MIN_ENGAGEMENT_SCORE,
-            "adaptive_limits_enabled": settings.ADAPTIVE_LIMITS_ENABLED,
-            "block_detection_enabled": settings.BLOCK_DETECTION_ENABLED,
+            "enabled": _get_config_from_db(db, "SHIELD_ENABLED", settings.SHIELD_ENABLED, bool),
+            "delay_variation": _get_config_from_db(db, "DELAY_VARIATION", settings.DELAY_VARIATION, float),
+            "break_interval": _get_config_from_db(db, "BREAK_INTERVAL", settings.BREAK_INTERVAL, int),
+            "break_duration_min": _get_config_from_db(db, "BREAK_DURATION_MIN", settings.BREAK_DURATION_MIN, float),
+            "break_duration_max": _get_config_from_db(db, "BREAK_DURATION_MAX", settings.BREAK_DURATION_MAX, float),
+            "min_engagement_score": _get_config_from_db(db, "MIN_ENGAGEMENT_SCORE", settings.MIN_ENGAGEMENT_SCORE, float),
+            "adaptive_limits_enabled": _get_config_from_db(db, "ADAPTIVE_LIMITS_ENABLED", settings.ADAPTIVE_LIMITS_ENABLED, bool),
+            "block_detection_enabled": _get_config_from_db(db, "BLOCK_DETECTION_ENABLED", settings.BLOCK_DETECTION_ENABLED, bool),
         },
         "rate_limit": {
-            "delay_between_messages": settings.DELAY_BETWEEN_MESSAGES,
-            "max_messages_per_hour": settings.MAX_MESSAGES_PER_HOUR,
-            "max_messages_per_day": settings.MAX_MESSAGES_PER_DAY,
-            "max_retries": settings.MAX_RETRIES,
-            "retry_delay": settings.RETRY_DELAY,
+            "delay_between_messages": _get_config_from_db(db, "DELAY_BETWEEN_MESSAGES", settings.DELAY_BETWEEN_MESSAGES, float),
+            "max_messages_per_hour": _get_config_from_db(db, "MAX_MESSAGES_PER_HOUR", settings.MAX_MESSAGES_PER_HOUR, int),
+            "max_messages_per_day": _get_config_from_db(db, "MAX_MESSAGES_PER_DAY", settings.MAX_MESSAGES_PER_DAY, int),
+            "max_retries": _get_config_from_db(db, "MAX_RETRIES", settings.MAX_RETRIES, int),
+            "retry_delay": _get_config_from_db(db, "RETRY_DELAY", settings.RETRY_DELAY, float),
         },
         "schedule": {
             "send_time": send_time,
@@ -100,70 +117,122 @@ async def get_config(
 @router.put("/shield")
 async def update_shield_config(
     config: ShieldConfigUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Atualiza configurações de blindagem
-    ⚠️ Requer reiniciar aplicação para aplicar mudanças
+    Salva no banco de dados para persistência
     """
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Apenas administradores podem alterar configurações")
     
-    # Atualizar variáveis de ambiente (em memória)
-    if config.enabled is not None:
-        os.environ["SHIELD_ENABLED"] = str(config.enabled).lower()
-    if config.delay_variation is not None:
-        os.environ["DELAY_VARIATION"] = str(config.delay_variation)
-    if config.break_interval is not None:
-        os.environ["BREAK_INTERVAL"] = str(config.break_interval)
-    if config.break_duration_min is not None:
-        os.environ["BREAK_DURATION_MIN"] = str(config.break_duration_min)
-    if config.break_duration_max is not None:
-        os.environ["BREAK_DURATION_MAX"] = str(config.break_duration_max)
-    if config.min_engagement_score is not None:
-        os.environ["MIN_ENGAGEMENT_SCORE"] = str(config.min_engagement_score)
-    if config.adaptive_limits_enabled is not None:
-        os.environ["ADAPTIVE_LIMITS_ENABLED"] = str(config.adaptive_limits_enabled).lower()
-    if config.block_detection_enabled is not None:
-        os.environ["BLOCK_DETECTION_ENABLED"] = str(config.block_detection_enabled).lower()
+    updated_keys = []
     
-    logger.info(f"Configurações de blindagem atualizadas por {current_user.email}")
+    # Salvar no banco de dados (SystemConfig)
+    config_map = {
+        "enabled": "SHIELD_ENABLED",
+        "delay_variation": "DELAY_VARIATION",
+        "break_interval": "BREAK_INTERVAL",
+        "break_duration_min": "BREAK_DURATION_MIN",
+        "break_duration_max": "BREAK_DURATION_MAX",
+        "min_engagement_score": "MIN_ENGAGEMENT_SCORE",
+        "adaptive_limits_enabled": "ADAPTIVE_LIMITS_ENABLED",
+        "block_detection_enabled": "BLOCK_DETECTION_ENABLED"
+    }
+    
+    for field_name, config_key in config_map.items():
+        value = getattr(config, field_name, None)
+        if value is not None:
+            # Buscar ou criar configuração no banco
+            db_config = db.query(SystemConfig).filter(SystemConfig.key == config_key).first()
+            if db_config:
+                # Converter boolean para string
+                str_value = str(value).lower() if isinstance(value, bool) else str(value)
+                db_config.value = str_value
+                db_config.updated_at = now_brazil()
+            else:
+                str_value = str(value).lower() if isinstance(value, bool) else str(value)
+                db_config = SystemConfig(
+                    key=config_key,
+                    value=str_value,
+                    description=f"Configuração de {field_name.replace('_', ' ').title()}"
+                )
+                db.add(db_config)
+            
+            # Também atualizar em memória para aplicar imediatamente
+            os.environ[config_key] = str_value
+            updated_keys.append(field_name)
+    
+    try:
+        db.commit()
+        logger.info(f"✅ Configurações de blindagem salvas no banco por {current_user.email}: {updated_keys}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Erro ao salvar configurações no banco: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar configurações: {str(e)}")
     
     return {
-        "message": "Configurações atualizadas. Reinicie a aplicação para aplicar as mudanças.",
-        "updated": config.dict(exclude_unset=True)
+        "message": "Configurações atualizadas e salvas no banco de dados.",
+        "updated": {k: getattr(config, k) for k in updated_keys if getattr(config, k) is not None}
     }
 
 
 @router.put("/rate-limit")
 async def update_rate_limit_config(
     config: RateLimitConfigUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Atualiza configurações de rate limiting
-    ⚠️ Requer reiniciar aplicação para aplicar mudanças
+    Salva no banco de dados para persistência
     """
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Apenas administradores podem alterar configurações")
     
-    # Atualizar variáveis de ambiente (em memória)
-    if config.delay_between_messages is not None:
-        os.environ["DELAY_BETWEEN_MESSAGES"] = str(config.delay_between_messages)
-    if config.max_messages_per_hour is not None:
-        os.environ["MAX_MESSAGES_PER_HOUR"] = str(config.max_messages_per_hour)
-    if config.max_messages_per_day is not None:
-        os.environ["MAX_MESSAGES_PER_DAY"] = str(config.max_messages_per_day)
-    if config.max_retries is not None:
-        os.environ["MAX_RETRIES"] = str(config.max_retries)
-    if config.retry_delay is not None:
-        os.environ["RETRY_DELAY"] = str(config.retry_delay)
+    updated_keys = []
     
-    logger.info(f"Configurações de rate limiting atualizadas por {current_user.email}")
+    # Salvar no banco de dados (SystemConfig)
+    config_map = {
+        "delay_between_messages": "DELAY_BETWEEN_MESSAGES",
+        "max_messages_per_hour": "MAX_MESSAGES_PER_HOUR",
+        "max_messages_per_day": "MAX_MESSAGES_PER_DAY",
+        "max_retries": "MAX_RETRIES",
+        "retry_delay": "RETRY_DELAY"
+    }
+    
+    for field_name, config_key in config_map.items():
+        value = getattr(config, field_name, None)
+        if value is not None:
+            # Buscar ou criar configuração no banco
+            db_config = db.query(SystemConfig).filter(SystemConfig.key == config_key).first()
+            if db_config:
+                db_config.value = str(value)
+                db_config.updated_at = now_brazil()
+            else:
+                db_config = SystemConfig(
+                    key=config_key,
+                    value=str(value),
+                    description=f"Configuração de {field_name.replace('_', ' ').title()}"
+                )
+                db.add(db_config)
+            
+            # Também atualizar em memória para aplicar imediatamente
+            os.environ[config_key] = str(value)
+            updated_keys.append(field_name)
+    
+    try:
+        db.commit()
+        logger.info(f"✅ Configurações de rate limiting salvas no banco por {current_user.email}: {updated_keys}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Erro ao salvar configurações no banco: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar configurações: {str(e)}")
     
     return {
-        "message": "Configurações atualizadas. Reinicie a aplicação para aplicar as mudanças.",
-        "updated": config.dict(exclude_unset=True)
+        "message": "Configurações atualizadas e salvas no banco de dados.",
+        "updated": {k: getattr(config, k) for k in updated_keys if getattr(config, k) is not None}
     }
 
 
